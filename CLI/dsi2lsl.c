@@ -187,7 +187,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
 	// some xml element pointers
   lsl_xml_ptr desc, chn, chns, ref; 
   int imax = 16;
-  char source_id[imax];
+  char source_id[16];
   char *long_label;
   char *short_label;
   char *reference;

@@ -7,6 +7,8 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QtGui>
+#include <QProgressBar>
+#include <QPushButton>
 
 
 namespace Ui {

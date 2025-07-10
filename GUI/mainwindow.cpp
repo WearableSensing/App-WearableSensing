@@ -4,6 +4,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QtGui>
+#include <QProgressBar>
+#include <QPushButton>
 
 #ifndef WIN32
 #include <unistd.h>
