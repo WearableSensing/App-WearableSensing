@@ -38,22 +38,20 @@ There are two main steps to building the executables: Configuration, where CMake
 #### Initial File Setup
 Before opening the project in VS Code, you must adjust the folder structure.
 
-Move ```CMakeLists.txt```: The App-WearableSensing repository includes a ```CMakeLists.txt``` file. You must move this file up one level into your main project folder so it sits alongside the dependency folders.
-
 After following the initial setup open your main project folder (e.g., ```lsl-wearablesensing```) in Visual Studio Code. Your project structure should look like this.
 
 ``` 
 lsl-wearablesensing
-    |--- .vscode/settings.json
     |--- App-WearableSensing
+        |--- .vscode/settings.json
         |--- CLI
         |--- GUI
-    |--- DSI-API
-    |--- LSL Library
-    |--- CMakeLists.txt
+        |--- DSI-API
+        |--- LSL Library
+        |--- CMakeLists.txt
 ```
 
-Edit Project Names: Inside ```CMakeLists.txt```, take a look at lines 24-28. Since the dependencies you download might be earlier or later versions ensure the naming is correct. 
+Edit Project Names/Path: Inside ```CMakeLists.txt```, take a look at lines 24-28. Since the dependencies you download might be earlier or later versions ensure the naming is correct. 
 
 #### CMake Configuration
 You need to tell CMake where to find the LSL and Qt5 libraries you downloaded. In VS Code, the easiest way to do this is by creating a workspace settings file.

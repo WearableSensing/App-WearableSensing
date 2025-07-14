@@ -86,6 +86,87 @@ int main( int argc, const char * argv[] )
 }
 
 
+
+
+void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
+{
+    unsigned int sourceIndex;
+    unsigned int numberOfSources = DSI_Headset_GetNumberOfSources( h );
+
+    // This function uses `userData` as nothing more than a crude boolean
+    // flag: when it is non-zero, we'll print headings; when it is zero,
+    // we'll print impedance values.
+
+    if( userData ) printf( "%9s",    "Time" );
+    else           printf( "% 9.4f", packetOffsetTime );
+
+    for( sourceIndex = 0; sourceIndex < numberOfSources; sourceIndex++ )
+    {
+        DSI_Source s = DSI_Headset_GetSourceByIndex( h, sourceIndex );
+
+        if( DSI_Source_IsReferentialEEG( s ) && ! DSI_Source_IsFactoryReference( s ) )
+        {
+            if( userData ) printf( ",%9s",    DSI_Source_GetName( s ) );
+            else           printf( ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
+        }
+    }
+
+    // The common-mode follower (CMF) sensor, at the factory reference position,
+    // is a special case:
+
+    if( userData ) fprintf( stdout, ",   CMF=%s\n", DSI_Headset_GetFactoryReferenceString( h ) );
+    else           fprintf( stdout, ",% 9.4f\n",    DSI_Headset_GetImpedanceCMF( h ) );
+}
+
+int CheckImpedance( DSI_Headset h){
+  double durationSec = 5;
+  // ------------------------------------------------------
+  //stops the exisiting data acquisition
+  DSI_Headset_StopDataAcquisition( h );
+
+  // starts impedance driver
+  fprintf( stderr, "%s\n", "---------Starting Impedance Driver----------------\n" ); CHECK
+  DSI_Headset_StartImpedanceDriver( h ); CHECK
+  // The impedance driver injects current at 110Hz and 130Hz, to
+  // allow impedances to be measured. It is off by default when
+  // you initialize the headset.
+
+  fprintf( stderr, "%s\n", "---------Starting Data Acquisition----------------\n" ); CHECK
+  DSI_Headset_StartDataAcquisition( h ); CHECK
+  // This starts the sample-by-sample flow of data from the headset.
+
+  DSI_Headset_Idle( h, 1.0 ); CHECK
+  // Let's not print impedances until they have settled for a second.
+
+  PrintImpedances( h, 0, "headings" ); CHECK //this functions doesnt make sense ---think this just prints it, so we will want to print it in the terminal of lsl gui instead---------------------
+  // According to the way we set up `PrintImpedances`, above, calling
+  // it this way prints the column headings for our csv output.
+
+  DSI_Headset_SetSampleCallback( h, PrintImpedances, NULL ); CHECK
+  // This registers the callback we defined earlier, ensuring that
+  // impedances are printed to stdout every time a new sample arrives
+  // during `DSI_Headset_Idle()` or `DSI_Headset_Receive()`.
+
+  while(1){
+    DSI_Headset_Receive( h, 1, 0 ); CHECK //(headset, how long, extra time after turned off)
+      // This is really a shortcut for quick-and-dirty development: it
+      // turns on data acquisition mode if it is not already on, then
+      // processes events for the specified number of seconds---the same
+      // as `DSI_Headset_Idle( h, durationSec )`---or until data
+      // acquisition is otherwise stopped. It then ensures data
+      // acquisition is turned off and processes events for a further 1
+      // second. (A negative duration in either argument would mean
+      // "process forever".) Typically, you will want to use
+      // `DSI_Headset_Idle( h, 0)` inside your own main loop instead of
+      // a single call to `DSI_Headset_Receive()`.
+      // ------------------------------------------------------
+      // DSI_Headset_StopImpedanceDriver( h ); CHECK
+  }
+
+  return 0;
+}
+
+
 // handler called on every sample, immediately forwards to LSL
 void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)
 {
@@ -140,6 +221,10 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
 
   // prints an overview of what is known about the headset
   fprintf( stderr, "%s\n", DSI_Headset_GetInfoString( h ) ); CHECK
+
+    // -------------------------------------------check impedance on startup--------------------]
+  fprintf( stderr, "%s\n", "-------------checking impedances now-------------\n" ); CHECK
+  CheckImpedance( h ); CHECK
 
   if( headsetOut ) *headsetOut = h;
   if( helpOut ) *helpOut = help;
