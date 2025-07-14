@@ -22,6 +22,8 @@ void             OnSample( DSI_Headset h, double packetOffsetTime, void * userDa
 void      getRandomString( char *s, const int len);
 const char * GetStringOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2 );
 int         GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2, int defaultValue );
+int        startAnalogReset( DSI_Headset h );  
+int         CheckImpedance( DSI_Headset h ); 
 
 float *sample;
 static volatile int KeepRunning = 1;
@@ -116,6 +118,35 @@ void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
 
     if( userData ) fprintf( stdout, ",   CMF=%s\n", DSI_Headset_GetFactoryReferenceString( h ) );
     else           fprintf( stdout, ",% 9.4f\n",    DSI_Headset_GetImpedanceCMF( h ) );
+}
+
+int startAnalogReset(DSI_Headset h) {
+    if (h == NULL) {
+        printf("Error: Invalid headset handle.\n");
+        return -1;
+    }
+
+    printf("=== ANALOG RESET PROCEDURE ===\n");
+    
+    // Check initial analog reset mode
+    printf("--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
+    
+    printf("--> Sending analog reset command (StartAnalogReset)...\n");
+    DSI_Headset_StartAnalogReset(h);
+    CHECK;
+    
+    // Give it a moment to take effect
+    printf("--> Waiting 3 seconds for reset to complete...\n");
+    DSI_Sleep(3.0);
+    
+    printf("--> Analog reset complete!\n");
+
+    // Check impedances after reset
+    printf("\n=== CHECKING IMPEDANCES AFTER RESET ===\n");
+    CheckImpedance(h);
+
+    printf("=== END ANALOG RESET PROCEDURE ===\n");
+    return 0;
 }
 
 int CheckImpedance( DSI_Headset h){
@@ -324,6 +355,14 @@ int GlobalHelp( int argc, const char * argv[] )
             "\n"
             "  --help\n"
             "       Displays this help text.\n"
+            "\n"
+            "  --analog-reset\n"
+            "       Performs analog reset procedure and exits (does not start streaming).\n"
+            "       This command temporarily grounds the amplifier inputs to clear DC offsets,\n"
+            "       which can build up due to sensor movement during setup.\n"
+            "       Useful for quickly stabilizing signals after adjusting electrodes.\n"
+            "       It is recommended to wait at least 1 second after issuing the reset\n"
+            "       before taking new measurements or repeating the command.\n"
             "\n"
             "  --port\n"
             "       Specifies the serial port address (e.g. --port=COM4 on Windows,\n"
