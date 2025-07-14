@@ -31,12 +31,18 @@ private slots:
     QStringList parseArguments();
     void timerEvent(QTimerEvent *event);
 
+    // For checking impedance
+    void onZButtonClicked();
+
 private:
     Ui::MainWindow *ui;
     QProcess *streamer;
     int timerId;
     int counter;
     QProgressBar *progressBar;
+
+    // For checking impedance
+    QPushButton *ZButton; // Pointer to your ZButton (if you create it programmatically)
 };
 
 #endif // MAINWINDOW_H

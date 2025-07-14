@@ -46,8 +46,14 @@ add_executable(dsi2lsl
 )
 
 # the dependencies for LSL wearbale sensing module
-target_link_libraries(dsi2lsl LSL::lsl)
-target_include_directories(dsi2lsl PRIVATE "${DSI-API}")
+target_link_libraries(dsi2lsl 
+	PRIVATE
+	LSL::lsl 
+)
+target_include_directories(dsi2lsl 
+	PRIVATE 
+	"${DSI-API}" 
+)
 
 # the dependencies for the GUI
 target_link_libraries(${PROJECT_NAME}

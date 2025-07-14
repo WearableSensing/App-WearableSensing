@@ -13,6 +13,7 @@ Copyright (C) 2014-2020 Syntrogi Inc dba Intheon.
 #include <stdlib.h>
 #include <signal.h>
 
+
 // Helper functions and macros that will be defined down below
 int               StartUp( int argc, const char * argv[], DSI_Headset *headsetOut, int * helpOut );
 int                Finish( DSI_Headset h );
@@ -22,10 +23,12 @@ void             OnSample( DSI_Headset h, double packetOffsetTime, void * userDa
 void      getRandomString( char *s, const int len);
 const char * GetStringOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2 );
 int         GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2, int defaultValue );
+int        CheckImpedance( DSI_Headset h );
+void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData );
 
 float *sample;
 static volatile int KeepRunning = 1;
-void  QuitHandler(int a){ KeepRunning = 0;}
+void  QuitHandler(int a){ KeepRunning = 0; }
 
 // error checking machinery
 #define REPORT( fmt, x )  fprintf( stderr, #x " = " fmt "\n", ( x ) )
@@ -34,11 +37,15 @@ int CheckError( void ){
   else return 0;
 }
 #define CHECK   if( CheckError() != 0 ) return -1;
+// Define the maximum length of a command that can be entered
+#define MAX_COMMAND_LENGTH 256
 
 int main( int argc, const char * argv[] )
 {
   // First load the libDSI dynamic library
   const char * dllname = NULL;
+  char command[MAX_COMMAND_LENGTH]; // Buffer to store the user's command
+  char *token;                      // Pointer to store tokens (parts of the command)
 
 	// load the DSI DLL
   int load_error = Load_DSI_API( dllname );
@@ -77,7 +84,46 @@ int main( int argc, const char * argv[] )
   printf("Streaming...\n");
   while( KeepRunning==1 ){
     DSI_Headset_Idle( h, 0.0 ); CHECK
+    
+
+    // Read a line of input from stdin (the terminal)
+    // fgets reads up to MAX_COMMAND_LENGTH-1 characters or until a newline.
+    // It includes the newline character if it fits in the buffer.
+    if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
+        // Handle potential error or EOF (End Of File) condition
+        printf("Error reading input or EOF reached.\n");
+        break; // Exit the loop on error
+    }
+
+    // Remove the trailing newline character if it exists
+    // fgets includes the newline, which can interfere with string comparisons.
+    command[strcspn(command, "\n")] = 0;
+
+    // Check if the user wants to exit
+    if (strcmp(command, "exit") == 0) {
+        printf("Exiting program. Goodbye!\n");
+        break; // Exit the loop
+    }
+
+    // Use strtok to parse the command into tokens (words)
+    // The first call to strtok uses the original string.
+    // Subsequent calls use NULL to continue tokenizing the same string.
+    token = strtok(command, " "); // Tokenize by space
+
+    if (token == NULL) {
+        // If no command was entered (just spaces or empty line after stripping newline)
+        continue; // Go back to the prompt
+    }
+
+    // New Example: "greet" command with one required parameter
+    else if (strcmp(token, "checkZ") == 0) {
+        CheckImpedance( h ); CHECK
+        DSI_Headset_Receive( h, -1, 0 ); CHECK
+          
+    }
   }
+
+  
 
   // Gracefully exit the program
   printf("\n%s will exit now...\n", argv[ 0 ]);
@@ -87,38 +133,7 @@ int main( int argc, const char * argv[] )
 
 
 
-
-void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
-{
-    unsigned int sourceIndex;
-    unsigned int numberOfSources = DSI_Headset_GetNumberOfSources( h );
-
-    // This function uses `userData` as nothing more than a crude boolean
-    // flag: when it is non-zero, we'll print headings; when it is zero,
-    // we'll print impedance values.
-
-    if( userData ) printf( "%9s",    "Time" );
-    else           printf( "% 9.4f", packetOffsetTime );
-
-    for( sourceIndex = 0; sourceIndex < numberOfSources; sourceIndex++ )
-    {
-        DSI_Source s = DSI_Headset_GetSourceByIndex( h, sourceIndex );
-
-        if( DSI_Source_IsReferentialEEG( s ) && ! DSI_Source_IsFactoryReference( s ) )
-        {
-            if( userData ) printf( ",%9s",    DSI_Source_GetName( s ) );
-            else           printf( ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
-        }
-    }
-
-    // The common-mode follower (CMF) sensor, at the factory reference position,
-    // is a special case:
-
-    if( userData ) fprintf( stdout, ",   CMF=%s\n", DSI_Headset_GetFactoryReferenceString( h ) );
-    else           fprintf( stdout, ",% 9.4f\n",    DSI_Headset_GetImpedanceCMF( h ) );
-}
-
-int CheckImpedance( DSI_Headset h){
+int CheckImpedance( DSI_Headset h ){
   double durationSec = 5;
   // ------------------------------------------------------
   //stops the exisiting data acquisition
@@ -146,22 +161,6 @@ int CheckImpedance( DSI_Headset h){
   // This registers the callback we defined earlier, ensuring that
   // impedances are printed to stdout every time a new sample arrives
   // during `DSI_Headset_Idle()` or `DSI_Headset_Receive()`.
-
-  while(1){
-    DSI_Headset_Receive( h, 1, 0 ); CHECK //(headset, how long, extra time after turned off)
-      // This is really a shortcut for quick-and-dirty development: it
-      // turns on data acquisition mode if it is not already on, then
-      // processes events for the specified number of seconds---the same
-      // as `DSI_Headset_Idle( h, durationSec )`---or until data
-      // acquisition is otherwise stopped. It then ensures data
-      // acquisition is turned off and processes events for a further 1
-      // second. (A negative duration in either argument would mean
-      // "process forever".) Typically, you will want to use
-      // `DSI_Headset_Idle( h, 0)` inside your own main loop instead of
-      // a single call to `DSI_Headset_Receive()`.
-      // ------------------------------------------------------
-      // DSI_Headset_StopImpedanceDriver( h ); CHECK
-  }
 
   return 0;
 }
@@ -222,9 +221,6 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
   // prints an overview of what is known about the headset
   fprintf( stderr, "%s\n", DSI_Headset_GetInfoString( h ) ); CHECK
 
-    // -------------------------------------------check impedance on startup--------------------]
-  fprintf( stderr, "%s\n", "-------------checking impedances now-------------\n" ); CHECK
-  CheckImpedance( h ); CHECK
 
   if( headsetOut ) *headsetOut = h;
   if( helpOut ) *helpOut = help;
@@ -402,4 +398,36 @@ int GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const c
     if( !end || !*end ) return result;
     fprintf( stderr, "WARNING: could not interpret \"%s\" as a valid integer value for the \"%s\" option - reverting to default value %s=%g\n", stringValue, keyword1, keyword1, ( double )defaultValue );
     return defaultValue;
+}
+
+
+
+void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
+{
+    unsigned int sourceIndex;
+    unsigned int numberOfSources = DSI_Headset_GetNumberOfSources( h );
+
+    // This function uses `userData` as nothing more than a crude boolean
+    // flag: when it is non-zero, we'll print headings; when it is zero,
+    // we'll print impedance values.
+
+    if( userData ) printf( "%9s",    "Time" );
+    else           printf( "% 9.4f", packetOffsetTime );
+
+    for( sourceIndex = 0; sourceIndex < numberOfSources; sourceIndex++ )
+    {
+        DSI_Source s = DSI_Headset_GetSourceByIndex( h, sourceIndex );
+
+        if( DSI_Source_IsReferentialEEG( s ) && ! DSI_Source_IsFactoryReference( s ) )
+        {
+            if( userData ) printf( ",%9s",    DSI_Source_GetName( s ) );
+            else           printf( ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
+        }
+    }
+
+    // The common-mode follower (CMF) sensor, at the factory reference position,
+    // is a special case:
+
+    if( userData ) fprintf( stdout, ",   CMF=%s\n", DSI_Headset_GetFactoryReferenceString( h ) );
+    else           fprintf( stdout, ",% 9.4f\n",    DSI_Headset_GetImpedanceCMF( h ) );
 }

@@ -62,7 +62,7 @@
     </item>
 
     <item row="9" column="2">
-     <widget class="QPushButton" name="buttonIMake">
+     <widget class="QPushButton" name="ZButton">
       <property name="toolTip">
        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Checks Impedance&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>

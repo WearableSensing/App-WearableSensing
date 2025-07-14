@@ -6,6 +6,8 @@
 #include <QtGui>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QByteArray>
+#include <iostream>
 
 #ifndef WIN32
 #include <unistd.h>
@@ -66,6 +68,25 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+// function to change impedance when clicked
+void MainWindow::onZButtonClicked(){
+    if (this->streamer && this->streamer->state() == QProcess::Running) {
+        // The command to send, including the newline character to simulate 'Enter'
+        QByteArray command;
+
+        command = "checkZ\n";
+        this->ui->console->append("Start Impedance check");
+        this->ui->console->append("-------------------------------------");
+        // Write the command to the process's standard input
+        this->streamer->write(command);
+
+        
+    } else {
+        this->ui->console->append("Streamer is not running. Cannot send command.");
+    }
+
+}
+
 
 
 
@@ -78,6 +99,8 @@ void MainWindow::on_buttonBox_accepted()
     QStringList arguments = this->parseArguments();
     this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
+    // Connecting Impedance button
+    connect(ui->ZButton, &QPushButton::clicked, this, &MainWindow::onZButtonClicked);
     this->counter = 0;
     this->timerId = this->startTimer(1000);
 }
