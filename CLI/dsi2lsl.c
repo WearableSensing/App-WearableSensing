@@ -67,6 +67,7 @@ int main( int argc, const char * argv[] )
     return error;
   }
 
+
   // Initialize LSL outlet
   const char * streamName = GetStringOpt(  argc, argv, "lsl-stream-name",   "m" );
   if (!streamName) 
@@ -116,11 +117,15 @@ int main( int argc, const char * argv[] )
         continue; // Go back to the prompt
     }
 
-    // New Example: "greet" command with one required parameter
     else if (strcmp(token, "checkZ") == 0) {
         CheckImpedance( h ); CHECK
         DSI_Headset_Receive( h, -1, 0 ); CHECK
           
+    }
+
+    else if (strcmp(token, "resetZ") == 0) {
+        // Reset impedance
+        startAnalogReset( h ); CHECK
     }
   }
 
@@ -132,6 +137,28 @@ int main( int argc, const char * argv[] )
   return Finish( h );
 }
 
+int startAnalogReset(DSI_Headset h) {
+    if (h == NULL) {
+        printf("Error: Invalid headset handle.\n");
+        return -1;
+    }
+    fprintf( stderr, "%s\n", "---------Starting Analog Reset----------------\n" ); CHECK
+  
+    
+    // Check initial analog reset mode
+    printf("--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
+    
+
+    DSI_Headset_StartAnalogReset(h);
+    CHECK;
+    
+    // printf("--> Waiting 3 seconds for reset to complete...\n");
+    DSI_Sleep(3.0);
+    
+    fprintf( stderr, "%s\n", "---------Analog Reset Complete----------------\n" ); 
+    fflush(stderr);
+    return 0;
+}
 
 
 int CheckImpedance( DSI_Headset h ){
@@ -151,8 +178,7 @@ int CheckImpedance( DSI_Headset h ){
   DSI_Headset_StartDataAcquisition( h ); CHECK
   // This starts the sample-by-sample flow of data from the headset.
 
-  DSI_Headset_Idle( h, 1.0 ); CHECK
-  // Let's not print impedances until they have settled for a second.
+
 
   PrintImpedances( h, 0, "headings" ); CHECK //this functions doesnt make sense ---think this just prints it, so we will want to print it in the terminal of lsl gui instead---------------------
   // According to the way we set up `PrintImpedances`, above, calling
@@ -321,14 +347,6 @@ int GlobalHelp( int argc, const char * argv[] )
             "\n"
             "  --help\n"
             "       Displays this help text.\n"
-            "\n"
-            "  --analog-reset\n"
-            "       Performs analog reset procedure and exits (does not start streaming).\n"
-            "       This command temporarily grounds the amplifier inputs to clear DC offsets,\n"
-            "       which can build up due to sensor movement during setup.\n"
-            "       Useful for quickly stabilizing signals after adjusting electrodes.\n"
-            "       It is recommended to wait at least 1 second after issuing the reset\n"
-            "       before taking new measurements or repeating the command.\n"
             "\n"
             "  --port\n"
             "       Specifies the serial port address (e.g. --port=COM4 on Windows,\n"
