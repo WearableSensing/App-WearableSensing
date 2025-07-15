@@ -34,6 +34,9 @@ private slots:
     // For checking impedance
     void onZButtonClicked();
 
+    // For resetting impedance
+    void onResetZButtonClicked();
+
 private:
     Ui::MainWindow *ui;
     QProcess *streamer;
@@ -42,7 +45,10 @@ private:
     QProgressBar *progressBar;
 
     // For checking impedance
-    QPushButton *ZButton; // Pointer to your ZButton (if you create it programmatically)
+    QPushButton *ZButton; // Pointer to your ZButton
+
+    // For resetting impedance
+    QPushButton *resetZButton; // Pointer to your resetZButton
 };
 
 #endif // MAINWINDOW_H
