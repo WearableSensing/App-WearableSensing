@@ -68,34 +68,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::onZButtonClicked(){
-    if (this->streamer && this->streamer->state() == QProcess::Running) {
-        
-        // The command to send, including the newline character to simulate 'Enter'
-        QByteArray command = "checkZ\n";
-        
-        // Write the command to the process's standard input
-        this->streamer->write(command);
-        
-    } else {
-        this->ui->console->append("Streamer is not running. Cannot send command.");
-    }
-}
 
-void MainWindow::onResetZButtonClicked(){
-    if (this->streamer && this->streamer->state() == QProcess::Running) {
-        // The command to send, including the newline character to simulate 'Enter'
-        QByteArray command;
-
-        command = "resetZ\n";
-
-        // Write the command to the process's standard input
-        this->streamer->write(command);
-
-    } else {
-        this->ui->console->append("Streamer is not running. Cannot send command.");
-    }
-}
 
 
 
