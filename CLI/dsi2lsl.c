@@ -13,6 +13,7 @@ Copyright (C) 2014-2020 Syntrogi Inc dba Intheon.
 #include <stdlib.h>
 #include <signal.h>
 
+
 // Helper functions and macros that will be defined down below
 int               StartUp( int argc, const char * argv[], DSI_Headset *headsetOut, int * helpOut );
 int                Finish( DSI_Headset h );
@@ -22,10 +23,13 @@ void             OnSample( DSI_Headset h, double packetOffsetTime, void * userDa
 void      getRandomString( char *s, const int len);
 const char * GetStringOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2 );
 int         GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2, int defaultValue );
+int        startAnalogReset( DSI_Headset h );  
+int          CheckImpedance( DSI_Headset h ); 
+void        PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData );
 
 float *sample;
 static volatile int KeepRunning = 1;
-void  QuitHandler(int a){ KeepRunning = 0;}
+void  QuitHandler(int a){ KeepRunning = 0; }
 
 // error checking machinery
 #define REPORT( fmt, x )  fprintf( stderr, #x " = " fmt "\n", ( x ) )
@@ -34,11 +38,15 @@ int CheckError( void ){
   else return 0;
 }
 #define CHECK   if( CheckError() != 0 ) return -1;
+// Define the maximum length of a command that can be entered
+#define MAX_COMMAND_LENGTH 256
 
 int main( int argc, const char * argv[] )
 {
   // First load the libDSI dynamic library
   const char * dllname = NULL;
+  char command[MAX_COMMAND_LENGTH]; // Buffer to store the user's command
+  char *token;                      // Pointer to store tokens (parts of the command)
 
 	// load the DSI DLL
   int load_error = Load_DSI_API( dllname );
@@ -59,6 +67,7 @@ int main( int argc, const char * argv[] )
     return error;
   }
 
+
   // Initialize LSL outlet
   const char * streamName = GetStringOpt(  argc, argv, "lsl-stream-name",   "m" );
   if (!streamName) 
@@ -77,12 +86,110 @@ int main( int argc, const char * argv[] )
   printf("Streaming...\n");
   while( KeepRunning==1 ){
     DSI_Headset_Idle( h, 0.0 ); CHECK
+    
+
+    // Read a line of input from stdin (the terminal)
+    // fgets reads up to MAX_COMMAND_LENGTH-1 characters or until a newline.
+    // It includes the newline character if it fits in the buffer.
+    if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
+        // Handle potential error or EOF (End Of File) condition
+        printf("Error reading input or EOF reached.\n");
+        break; // Exit the loop on error
+    }
+
+    // Remove the trailing newline character if it exists
+    // fgets includes the newline, which can interfere with string comparisons.
+    command[strcspn(command, "\n")] = 0;
+
+    // Check if the user wants to exit
+    if (strcmp(command, "exit") == 0) {
+        printf("Exiting program. Goodbye!\n");
+        break; // Exit the loop
+    }
+
+    // Use strtok to parse the command into tokens (words)
+    // The first call to strtok uses the original string.
+    // Subsequent calls use NULL to continue tokenizing the same string.
+    token = strtok(command, " "); // Tokenize by space
+
+    if (token == NULL) {
+        // If no command was entered (just spaces or empty line after stripping newline)
+        continue; // Go back to the prompt
+    }
+
+    else if (strcmp(token, "checkZ") == 0) {
+        CheckImpedance( h ); CHECK
+        DSI_Headset_Receive( h, -1, 0 ); CHECK
+          
+    }
+
+    else if (strcmp(token, "resetZ") == 0) {
+        // Reset impedance
+        startAnalogReset( h ); CHECK
+    }
   }
+
+  
 
   // Gracefully exit the program
   printf("\n%s will exit now...\n", argv[ 0 ]);
   lsl_destroy_outlet(outlet);
   return Finish( h );
+}
+
+int startAnalogReset(DSI_Headset h) {
+    if (h == NULL) {
+        printf("Error: Invalid headset handle.\n");
+        return -1;
+    }
+    fprintf( stderr, "%s\n", "---------Starting Analog Reset----------------\n" ); CHECK
+  
+    
+    // Check initial analog reset mode
+    printf("--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
+    
+
+    DSI_Headset_StartAnalogReset(h);
+    CHECK;
+    
+    // printf("--> Waiting 3 seconds for reset to complete...\n");
+    DSI_Sleep(3.0);
+    
+    fprintf( stderr, "%s\n", "---------Analog Reset Complete----------------\n" ); 
+    fflush(stderr);
+    return 0;
+}
+
+
+int CheckImpedance( DSI_Headset h ){
+  double durationSec = 5;
+  // ------------------------------------------------------
+  //stops the exisiting data acquisition
+  DSI_Headset_StopDataAcquisition( h );
+
+  // starts impedance driver
+  fprintf( stderr, "%s\n", "---------Starting Impedance Driver----------------\n" ); CHECK
+  DSI_Headset_StartImpedanceDriver( h ); CHECK
+  // The impedance driver injects current at 110Hz and 130Hz, to
+  // allow impedances to be measured. It is off by default when
+  // you initialize the headset.
+
+  fprintf( stderr, "%s\n", "---------Starting Data Acquisition----------------\n" ); CHECK
+  DSI_Headset_StartDataAcquisition( h ); CHECK
+  // This starts the sample-by-sample flow of data from the headset.
+
+
+
+  PrintImpedances( h, 0, "headings" ); CHECK //this functions doesnt make sense ---think this just prints it, so we will want to print it in the terminal of lsl gui instead---------------------
+  // According to the way we set up `PrintImpedances`, above, calling
+  // it this way prints the column headings for our csv output.
+
+  DSI_Headset_SetSampleCallback( h, PrintImpedances, NULL ); CHECK
+  // This registers the callback we defined earlier, ensuring that
+  // impedances are printed to stdout every time a new sample arrives
+  // during `DSI_Headset_Idle()` or `DSI_Headset_Receive()`.
+
+  return 0;
 }
 
 
@@ -141,6 +248,7 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
   // prints an overview of what is known about the headset
   fprintf( stderr, "%s\n", DSI_Headset_GetInfoString( h ) ); CHECK
 
+
   if( headsetOut ) *headsetOut = h;
   if( helpOut ) *helpOut = help;
   return 0;
@@ -187,7 +295,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
 	// some xml element pointers
   lsl_xml_ptr desc, chn, chns, ref; 
   int imax = 16;
-  char source_id[imax];
+  char source_id[16];
   char *long_label;
   char *short_label;
   char *reference;
@@ -317,4 +425,36 @@ int GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const c
     if( !end || !*end ) return result;
     fprintf( stderr, "WARNING: could not interpret \"%s\" as a valid integer value for the \"%s\" option - reverting to default value %s=%g\n", stringValue, keyword1, keyword1, ( double )defaultValue );
     return defaultValue;
+}
+
+
+
+void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
+{
+    unsigned int sourceIndex;
+    unsigned int numberOfSources = DSI_Headset_GetNumberOfSources( h );
+
+    // This function uses `userData` as nothing more than a crude boolean
+    // flag: when it is non-zero, we'll print headings; when it is zero,
+    // we'll print impedance values.
+
+    if( userData ) printf( "%9s",    "Time" );
+    else           printf( "% 9.4f", packetOffsetTime );
+
+    for( sourceIndex = 0; sourceIndex < numberOfSources; sourceIndex++ )
+    {
+        DSI_Source s = DSI_Headset_GetSourceByIndex( h, sourceIndex );
+
+        if( DSI_Source_IsReferentialEEG( s ) && ! DSI_Source_IsFactoryReference( s ) )
+        {
+            if( userData ) printf( ",%9s",    DSI_Source_GetName( s ) );
+            else           printf( ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
+        }
+    }
+
+    // The common-mode follower (CMF) sensor, at the factory reference position,
+    // is a special case:
+
+    if( userData ) fprintf( stdout, ",   CMF=%s\n", DSI_Headset_GetFactoryReferenceString( h ) );
+    else           fprintf( stdout, ",% 9.4f\n",    DSI_Headset_GetImpedanceCMF( h ) );
 }

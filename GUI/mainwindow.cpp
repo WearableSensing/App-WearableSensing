@@ -4,6 +4,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QtGui>
+#include <QProgressBar>
+#include <QPushButton>
+#include <QByteArray>
+#include <iostream>
 
 #ifndef WIN32
 #include <unistd.h>
@@ -67,6 +71,7 @@ MainWindow::~MainWindow()
 
 
 
+
 void MainWindow::on_buttonBox_accepted()
 {
     if(this->streamer != NULL)
@@ -76,6 +81,9 @@ void MainWindow::on_buttonBox_accepted()
     QStringList arguments = this->parseArguments();
     this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
+    // Connecting Impedance button
+    connect(ui->ZButton, &QPushButton::clicked, this, &MainWindow::onZButtonClicked);
+    connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
     this->counter = 0;
     this->timerId = this->startTimer(1000);
 }

@@ -1,0 +1,18 @@
+{
+    "cmake.configureArgs": [
+        "-DLSL_DIR=YOUR_PATH_TO_LSL_LIBRARY",
+        "-DQt5_DIR=YOUR_PATH_TO_QT5_LIBRARY"
+    ],
+    "files.associations": {
+        "mainwindow.h": "c",
+        "xstring": "cpp",
+        "iostream": "cpp",
+        "qbytearray": "cpp",
+        "initializer_list": "cpp",
+        "iterator": "cpp",
+        "memory": "cpp",
+        "xmemory": "cpp",
+        "xutility": "cpp"
+    }
+
+}

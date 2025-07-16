@@ -7,6 +7,8 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QtGui>
+#include <QProgressBar>
+#include <QPushButton>
 
 
 namespace Ui {
@@ -35,6 +37,7 @@ private:
     int timerId;
     int counter;
     QProgressBar *progressBar;
+
 };
 
 #endif // MAINWINDOW_H
