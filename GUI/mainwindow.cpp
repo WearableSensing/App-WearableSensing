@@ -123,8 +123,8 @@ void MainWindow::on_buttonBox_accepted()
     this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
     // Connecting Impedance button
-    connect(ui->ZButton, &QPushButton::clicked, this, &MainWindow::onZButtonClicked);
-    connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
+    // connect(ui->ZButton, &QPushButton::clicked, this, &MainWindow::onZButtonClicked);
+    // connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
     this->counter = 0;
     this->timerId = this->startTimer(1000);
 }
