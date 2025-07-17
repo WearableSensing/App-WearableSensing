@@ -46,9 +46,12 @@ private:
 
     // For checking impedance
     QPushButton *ZButton; // Pointer to your ZButton
+    bool zbuttonstate;
 
     // For resetting impedance
     QPushButton *resetZButton; // Pointer to your resetZButton
+
+    
 };
 
 #endif // MAINWINDOW_H

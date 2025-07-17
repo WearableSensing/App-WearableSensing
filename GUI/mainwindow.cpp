@@ -58,6 +58,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // Create a brand new streamer
     this->streamer = new QProcess(this);
     this->streamer->setProcessChannelMode(QProcess::MergedChannels);
+    zbuttonstate = false;
 }
 
 
@@ -70,12 +71,25 @@ MainWindow::~MainWindow()
 
 void MainWindow::onZButtonClicked(){
     if (this->streamer && this->streamer->state() == QProcess::Running) {
+
+        if(zbuttonstate == false){
+            zbuttonstate = true;
+        }else{
+            zbuttonstate = false;
+        }
         
         // The command to send, including the newline character to simulate 'Enter'
-        QByteArray command = "checkZ\n";
-        
+        QByteArray command;
+        if(zbuttonstate){
+            command = "checkZOn\n";
+            // this->ui->console->append("i'm on");
+        }else{
+            command = "checkZOff\n";
+            // this->ui->console->append("i'm off");
+        }
         // Write the command to the process's standard input
         this->streamer->write(command);
+        
         
     } else {
         this->ui->console->append("Streamer is not running. Cannot send command.");

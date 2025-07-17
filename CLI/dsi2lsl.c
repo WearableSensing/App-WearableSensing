@@ -12,6 +12,7 @@ Copyright (C) 2014-2020 Syntrogi Inc dba Intheon.
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <windows.h>
 
 
 // Helper functions and macros that will be defined down below
@@ -29,6 +30,7 @@ void        PrintImpedances( DSI_Headset h, double packetOffsetTime, void * user
 
 float *sample;
 static volatile int KeepRunning = 1;
+static volatile int DSI_Thread_Paused = 0;
 void  QuitHandler(int a){ KeepRunning = 0; }
 
 // error checking machinery
@@ -41,12 +43,71 @@ int CheckError( void ){
 // Define the maximum length of a command that can be entered
 #define MAX_COMMAND_LENGTH 256
 
+
+typedef struct {
+    DSI_Headset h;
+    volatile int         boolFlag;
+    volatile int         startFlag;
+    volatile int         stopFlag;
+} ThreadParams;
+
+// MODIFICATION: This function runs in a separate thread to continuously call DSI_Headset_Idle.
+DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
+    DSI_Headset h = (DSI_Headset)lpParam;
+    fprintf(stderr, "DSI processing thread started.\n");
+
+    while (KeepRunning == 1) {
+        // Only call Idle if the main thread hasn't paused us
+        if (!DSI_Thread_Paused) {
+            DSI_Headset_Idle(h, 0.0);
+            if (CheckError() != 0) {
+                fprintf(stderr, "Error in DSI processing thread. Exiting.\n");
+                KeepRunning = 0; // Signal main thread to exit
+            }
+        }
+        // Sleep for a tiny amount of time to prevent pegging the CPU
+        Sleep(1);
+    }
+
+    printf("DSI processing thread finished.\n");
+    return 0;
+}
+
+
+DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
+    fprintf(stderr,"DSI impedance thread started.\n");
+    ThreadParams *params = (ThreadParams *)lpParam;
+    DSI_Headset h = params->h;
+
+    while(1){
+      if(params->startFlag){
+        CheckImpedance( h ); CHECK
+        params->startFlag = 0;
+      }
+      while (params->boolFlag) {
+          DSI_Headset_Receive( h, 0.1, 0 ); CHECK
+      }
+      if(params->stopFlag){
+        DSI_Headset_StopImpedanceDriver( h ); CHECK
+        DSI_Headset_SetSampleCallback( h, NULL, NULL ); CHECK // might stop the ability to record as well
+        fprintf(stderr, "\n----------Stopped Impedance Driver-------------\n");
+        params->stopFlag = 0;
+      }
+    }
+    
+
+    printf("DSI impedance thread finished.\n");
+    return 0;
+}
+
 int main( int argc, const char * argv[] )
 {
   // First load the libDSI dynamic library
   const char * dllname = NULL;
   char command[MAX_COMMAND_LENGTH]; // Buffer to store the user's command
   char *token;                      // Pointer to store tokens (parts of the command)
+
+  HANDLE sThread, iThread;
 
 	// load the DSI DLL
   int load_error = Load_DSI_API( dllname );
@@ -79,13 +140,35 @@ int main( int argc, const char * argv[] )
   DSI_Headset_SetSampleCallback( h, OnSample, outlet ); CHECK
 
   // Start data acquisition
-  printf("Starting data acquisition\n");
+  fprintf(stderr,"Starting data acquisition\n");
   DSI_Headset_StartDataAcquisition( h ); CHECK
 
+
+  // Create and start the DSI processing thread
+  sThread = CreateThread(NULL, 0, DSI_Processing_Thread, h, 0, NULL);
+  if (sThread == NULL) {
+      fprintf(stderr, "Error creating DSI processing thread.\n");
+      return Finish(h);
+  }
+  ThreadParams params;
+  params.h = h; // your DSI_Headset variable
+  params.boolFlag = 0;           // The integer you want to pass
+  params.startFlag = 0;
+  params.stopFlag = 0;
+
+  // Create the impedance thread
+  iThread = CreateThread(NULL, 0, ImpedanceThread, &params, 0, NULL);
+  if (iThread == NULL) {
+      fprintf(stderr, "Error creating DSI processing thread.\n");
+      return Finish(h);
+  }
+  fprintf(stderr, "Wait...\n");
+  Sleep(2);
+  fprintf(stderr, "Setup Ready\n");
   // Start streaming
   printf("Streaming...\n");
   while( KeepRunning==1 ){
-    DSI_Headset_Idle( h, 0.0 ); CHECK
+    // DSI_Headset_Idle( h, 0.0 ); CHECK
     
 
     // Read a line of input from stdin (the terminal)
@@ -101,34 +184,47 @@ int main( int argc, const char * argv[] )
     // fgets includes the newline, which can interfere with string comparisons.
     command[strcspn(command, "\n")] = 0;
 
-    // Check if the user wants to exit
-    if (strcmp(command, "exit") == 0) {
-        printf("Exiting program. Goodbye!\n");
-        break; // Exit the loop
-    }
-
-    // Use strtok to parse the command into tokens (words)
-    // The first call to strtok uses the original string.
-    // Subsequent calls use NULL to continue tokenizing the same string.
-    token = strtok(command, " "); // Tokenize by space
-
-    if (token == NULL) {
+    if (command == NULL) {
         // If no command was entered (just spaces or empty line after stripping newline)
         continue; // Go back to the prompt
     }
 
-    else if (strcmp(token, "checkZ") == 0) {
-        CheckImpedance( h ); CHECK
-        DSI_Headset_Receive( h, -1, 0 ); CHECK
-          
-    }
+    // DSI_Thread_Paused = 1;
+    // Sleep(10);
 
-    else if (strcmp(token, "resetZ") == 0) {
+    else if (strcmp(command, "checkZOn") == 0) {
+        params.boolFlag = 1;   
+        params.stopFlag = 0;
+        params.startFlag = 1;
+        fprintf(stderr, "-------------%i%i%i-------------\n", params.boolFlag, params.stopFlag, params.startFlag);
+
+    }else if (strcmp(command, "checkZOff") == 0) {
+        params.boolFlag = 0;   
+        params.stopFlag = 1;
+        params.startFlag = 0;
+    }
+    else if (strcmp(command, "resetZ") == 0) {
         // Reset impedance
         startAnalogReset( h ); CHECK
     }
+    Sleep(10);
+    // DSI_Thread_Paused = 0;
+    // printf("Command finished. Resuming normal operation.\n");
   }
 
+  // CLosing the threads
+  if (sThread != NULL) {
+      printf("Waiting for DSI thread to terminate...\n");
+      WaitForSingleObject(sThread, INFINITE);
+      CloseHandle(sThread);
+      printf("DSI thread has terminated.\n");
+  }
+  if (iThread != NULL) {
+      printf("Waiting for impedance thread to terminate...\n");
+      WaitForSingleObject(iThread, INFINITE);
+      CloseHandle(iThread);
+      printf("Impedance thread has terminated.\n");
+  }
   
 
   // Gracefully exit the program
@@ -162,10 +258,9 @@ int startAnalogReset(DSI_Headset h) {
 
 
 int CheckImpedance( DSI_Headset h ){
-  double durationSec = 5;
   // ------------------------------------------------------
   //stops the exisiting data acquisition
-  DSI_Headset_StopDataAcquisition( h );
+  // DSI_Headset_StopDataAcquisition( h );
 
   // starts impedance driver
   fprintf( stderr, "%s\n", "---------Starting Impedance Driver----------------\n" ); CHECK
@@ -174,13 +269,13 @@ int CheckImpedance( DSI_Headset h ){
   // allow impedances to be measured. It is off by default when
   // you initialize the headset.
 
-  fprintf( stderr, "%s\n", "---------Starting Data Acquisition----------------\n" ); CHECK
-  DSI_Headset_StartDataAcquisition( h ); CHECK
-  // This starts the sample-by-sample flow of data from the headset.
+  // fprintf( stderr, "%s\n", "---------Starting Data Acquisition----------------\n" ); CHECK
+  // DSI_Headset_StartDataAcquisition( h ); CHECK
+  // // This starts the sample-by-sample flow of data from the headset.
 
 
 
-  PrintImpedances( h, 0, "headings" ); CHECK //this functions doesnt make sense ---think this just prints it, so we will want to print it in the terminal of lsl gui instead---------------------
+  PrintImpedances( h, 0, "headings" ); CHECK 
   // According to the way we set up `PrintImpedances`, above, calling
   // it this way prints the column headings for our csv output.
 
@@ -214,7 +309,8 @@ int Message( const char * msg, int debugLevel ){
 int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * helpOut )
 {
   DSI_Headset h;
-
+// // Stop the LSL stream
+//     DSI_Headset_SetSampleCallback(h, NULL, NULL); CHECK
   // read out any configuration options
   int          help       = GetStringOpt(  argc, argv, "help",      "h" ) != NULL;
   const char * serialPort = GetStringOpt(  argc, argv, "port",      "p" );

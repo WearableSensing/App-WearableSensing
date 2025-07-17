@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(dsi2lslGUI
 	LANGUAGES C CXX
 	VERSION 1.13.0)
@@ -43,12 +43,29 @@ add_executable(${PROJECT_NAME} MACOSX_BUNDLE WIN32
 add_executable(dsi2lsl 
     ${LSL-CLI}/dsi2lsl.c
     ${DSI-API}/DSI_API_Loader.c
+	${DSI-API}/DSI.h
 )
+
+# # creates a worker executable
+# add_executable(worker
+# 	${LSL-CLI}/worker.c
+# 	${DSI-API}/DSI_API_Loader.c
+# )
+# target_include_directories(worker 
+# 	PRIVATE 
+# 	"${DSI-API}" 
+# )
+# target_link_libraries(worker 
+# 	PRIVATE
+# 	LSL::lsl 
+# 	Threads::Threads
+# )
 
 # the dependencies for LSL wearbale sensing module
 target_link_libraries(dsi2lsl 
 	PRIVATE
 	LSL::lsl 
+	Threads::Threads
 )
 target_include_directories(dsi2lsl 
 	PRIVATE 
