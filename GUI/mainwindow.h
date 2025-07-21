@@ -31,12 +31,6 @@ private slots:
     QStringList parseArguments();
     void timerEvent(QTimerEvent *event);
 
-    // For checking impedance
-    void onZButtonClicked();
-
-    // For resetting impedance
-    void onResetZButtonClicked();
-
 private:
     Ui::MainWindow *ui;
     QProcess *streamer;
@@ -44,14 +38,7 @@ private:
     int counter;
     QProgressBar *progressBar;
 
-    // For checking impedance
-    QPushButton *ZButton; // Pointer to your ZButton
     bool zbuttonstate;
-
-    // For resetting impedance
-    QPushButton *resetZButton; // Pointer to your resetZButton
-
-    
 };
 
 #endif // MAINWINDOW_H
