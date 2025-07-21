@@ -106,7 +106,7 @@ With the kit and variant selected, you can now generate the project build files.
 
 1. Open the Command Palette ```(Ctrl+Shift+P)```.
 
-2. Type and select ```>CMake: Configure```.
+2. Type and select ```>CMake: Build```.
 
 3. This will compile the project. Once it has finished you fill find ```dsi2lsl.exe``` and ```dsi2lslGUI.exe``` inside the ```build/Release``` folder.
 
