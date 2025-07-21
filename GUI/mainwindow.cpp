@@ -30,6 +30,8 @@ const QString reference = "--reference=";
 const QString defaultValule = "(use default)";
 
 
+// Constructor for MainWindow
+// It initializes the UI, sets up the environment, and prepares the streamer process.
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
@@ -53,31 +55,36 @@ MainWindow::MainWindow(QWidget *parent) :
     this->progressBar = new QProgressBar(this);
     ui->statusBar->addPermanentWidget(this->progressBar, 1);
     this->progressBar->setTextVisible(false);
-
-
-    // Create a brand new streamer
     this->streamer = new QProcess(this);
     this->streamer->setProcessChannelMode(QProcess::MergedChannels);
     zbuttonstate = false;
 }
 
 
-
+// Destructor for MainWindow
+// It cleans up the UI and stops the streamer process if it is running.
 MainWindow::~MainWindow()
 {
     this->on_buttonBox_rejected();
     delete ui;
 }
 
+/*
+    * This function is called when the user clicks the "Z" button.
+    * It toggles the state of the Z button and sends a command to the streamer process
+    * to check the impedance status.
+    * If the streamer is not running, it appends a message to the console.
+*/
 void MainWindow::onZButtonClicked(){
     if (this->streamer && this->streamer->state() == QProcess::Running) {
 
+        // Toggle the state of the Z button
+        // If the button is currently off, set it to on, and vice versa
         if(zbuttonstate == false){
             zbuttonstate = true;
         }else{
             zbuttonstate = false;
         }
-        
         // The command to send, including the newline character to simulate 'Enter'
         QByteArray command;
         if(zbuttonstate){
@@ -89,35 +96,39 @@ void MainWindow::onZButtonClicked(){
         }
         // Write the command to the process's standard input
         this->streamer->write(command);
-        
-        
     } else {
         this->ui->console->append("Streamer is not running. Cannot send command.");
     }
 }
 
+/*
+    * This function is called when the user clicks the "Reset Z" button.
+    * It sends a command to the streamer process to reset the impedance values.
+    * If the streamer is not running, it appends a message to the console.
+*/
 void MainWindow::onResetZButtonClicked(){
     if (this->streamer && this->streamer->state() == QProcess::Running) {
         // The command to send, including the newline character to simulate 'Enter'
         QByteArray command;
-
         command = "resetZ\n";
-
         // Write the command to the process's standard input
         this->streamer->write(command);
-
     } else {
         this->ui->console->append("Streamer is not running. Cannot send command.");
     }
 }
 
 
-
+/*
+    * This function is called when the user clicks the "Start" button.
+    * It checks if the streamer is already running, and if so, it stops it.
+    * Then it sets up the input arguments for the streamer and starts it.
+    * It also connects the output of the streamer to a slot that writes to the console.
+*/
 void MainWindow::on_buttonBox_accepted()
 {
     if(this->streamer != NULL)
         this->on_buttonBox_rejected();
-
     // Set input arguments to the streamer
     QStringList arguments = this->parseArguments();
     this->streamer->start(program, arguments);
@@ -129,7 +140,11 @@ void MainWindow::on_buttonBox_accepted()
     this->timerId = this->startTimer(1000);
 }
 
-
+/*
+    * This function is called when the timer event occurs.
+    * It updates the progress bar and status bar message.
+    * If the streamer process is not running, it stops the timer and resets the UI.
+*/
 void MainWindow::timerEvent(QTimerEvent *event)
 {
     if(this->streamer->state()==QProcess::NotRunning)
@@ -137,7 +152,6 @@ void MainWindow::timerEvent(QTimerEvent *event)
         this->on_buttonBox_rejected();
         return;
     }
-
     if(!this->ui->statusBar->isVisible())
         this->ui->statusBar->setVisible(true);
     this->counter += 33;
@@ -147,7 +161,10 @@ void MainWindow::timerEvent(QTimerEvent *event)
     this->ui->statusBar->showMessage("Streaming...");
 }
 
-
+/*
+    * This function reads the output from the streamer process and appends it to the console.
+    * It is called whenever there is new data available from the streamer.
+*/
 void MainWindow::writeToConsole()
 {
     while(this->streamer->canReadLine()){
@@ -156,7 +173,10 @@ void MainWindow::writeToConsole()
 }
 
 
-
+/*
+    * This function is called when the user clicks the "Stop" button.
+    * It stops the streamer process and resets the UI elements.
+*/
 void MainWindow::on_buttonBox_rejected()
 {
     if(this->streamer != NULL){
@@ -169,7 +189,10 @@ void MainWindow::on_buttonBox_rejected()
 
 }
 
-
+/*
+    * Parses the arguments from the GUI input fields and returns a QStringList
+    * containing the command-line arguments for the dsi2lsl process.
+*/
 QStringList MainWindow::parseArguments()
 {
     QStringList arguments;
