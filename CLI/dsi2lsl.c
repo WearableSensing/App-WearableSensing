@@ -106,9 +106,10 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
         CheckImpedance( h ); CHECK
         params->startFlag = 0;
       }
-      while (params->boolFlag) {
-          DSI_Headset_Receive( h, 0.1, 0 ); CHECK
-      }
+      // uncomment the following lines to continuously print impedance check
+      // while (params->boolFlag) {
+      //     DSI_Headset_Receive( h, 0.1, 0 ); CHECK
+      // }
       if(params->stopFlag){
         DSI_Headset_StopImpedanceDriver( h ); CHECK
         DSI_Headset_SetSampleCallback( h, NULL, NULL ); CHECK /* Might stop the ability to record as well. */
@@ -172,7 +173,7 @@ int main( int argc, const char * argv[] )
   /* Custom struct for impedance flags */
   ThreadParams zFLag;
   zFLag.h = h; /* Valid DSI_Headset variable */
-  zFLag.boolFlag = 0; 
+  zFLag.boolFlag = 0; //used to print impedance continuously
   zFLag.startFlag = 0;
   zFLag.stopFlag = 0;
 
@@ -219,12 +220,12 @@ int main( int argc, const char * argv[] )
     }
 
     else if (strcmp(command, "checkZOn") == 0) {
-        zFLag.boolFlag = 1;   
+        // zFLag.boolFlag = 1;   // uncomment to print impedance continuously
         zFLag.stopFlag = 0;
         zFLag.startFlag = 1;
 
     }else if (strcmp(command, "checkZOff") == 0) {
-        zFLag.boolFlag = 0;   
+        // zFLag.boolFlag = 0;   // uncomment to print impedance continuously
         zFLag.stopFlag = 1;
         zFLag.startFlag = 0;
     }
