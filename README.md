@@ -134,7 +134,7 @@ Qt5\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll
 ```
 
 (```libDSI-Windows-x86_64.dll```) will be located in the DSI API folder. 
-> [!WARNING]
+> [!IMPORTANT]
 > You will need to rename the file ```libDSI-Windows-x86_64.dll``` to ```libDSI.dll```.
 
 (```lsl.dll```) will be located in the LSL Library folder.
