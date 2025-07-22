@@ -9,6 +9,7 @@
 #include <QtGui>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QCheckBox>
 
 
 namespace Ui {
@@ -30,6 +31,8 @@ private slots:
     void writeToConsole();
     QStringList parseArguments();
     void timerEvent(QTimerEvent *event);
+    // For checking impedance
+    void onZCheckBoxToggled(bool checked);
 
 private:
     Ui::MainWindow *ui;
@@ -38,7 +41,9 @@ private:
     int counter;
     QProgressBar *progressBar;
 
-    bool zbuttonstate;
+    // For checking impedance
+    QCheckBox *ZCheckBox;
+
 };
 
 #endif // MAINWINDOW_H

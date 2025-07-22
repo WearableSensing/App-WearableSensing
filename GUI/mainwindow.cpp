@@ -6,6 +6,7 @@
 #include <QtGui>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QByteArray>
 #include <iostream>
 
@@ -57,7 +58,6 @@ MainWindow::MainWindow(QWidget *parent) :
     this->progressBar->setTextVisible(false);
     this->streamer = new QProcess(this);
     this->streamer->setProcessChannelMode(QProcess::MergedChannels);
-    zbuttonstate = false;
 }
 
 
@@ -75,19 +75,11 @@ MainWindow::~MainWindow()
     * to check the impedance status.
     * If the streamer is not running, it appends a message to the console.
 */
-void MainWindow::onZButtonClicked(){
+void MainWindow::onZCheckBoxToggled(bool checked){
     if (this->streamer && this->streamer->state() == QProcess::Running) {
-
-        // Toggle the state of the Z button
-        // If the button is currently off, set it to on, and vice versa
-        if(zbuttonstate == false){
-            zbuttonstate = true;
-        }else{
-            zbuttonstate = false;
-        }
         // The command to send, including the newline character to simulate 'Enter'
         QByteArray command;
-        if(zbuttonstate){
+        if(checked){
             command = "checkZOn\n";
             // this->ui->console->append("i'm on");
         }else{
@@ -101,22 +93,6 @@ void MainWindow::onZButtonClicked(){
     }
 }
 
-/*
-    * This function is called when the user clicks the "Reset Z" button.
-    * It sends a command to the streamer process to reset the impedance values.
-    * If the streamer is not running, it appends a message to the console.
-*/
-void MainWindow::onResetZButtonClicked(){
-    if (this->streamer && this->streamer->state() == QProcess::Running) {
-        // The command to send, including the newline character to simulate 'Enter'
-        QByteArray command;
-        command = "resetZ\n";
-        // Write the command to the process's standard input
-        this->streamer->write(command);
-    } else {
-        this->ui->console->append("Streamer is not running. Cannot send command.");
-    }
-}
 
 
 /*
@@ -134,8 +110,7 @@ void MainWindow::on_buttonBox_accepted()
     this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
     // Connecting Impedance button
-    // connect(ui->ZButton, &QPushButton::clicked, this, &MainWindow::onZButtonClicked);
-    // connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
+    connect(ui->ZCheckBox, &QCheckBox::toggled, this, &MainWindow::onZCheckBoxToggled);
     this->counter = 0;
     this->timerId = this->startTimer(1000);
 }
@@ -185,6 +160,7 @@ void MainWindow::on_buttonBox_rejected()
         this->killTimer(this->timerId);
         this->counter = 0;
         this->ui->statusBar->setVisible(false);
+        this->ui->ZCheckBox->setChecked(false); // Uncheck the ZCheckBox
     }
 
 }

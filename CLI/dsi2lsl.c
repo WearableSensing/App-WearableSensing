@@ -116,7 +116,6 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       // }
       if(params->stopFlag){
         DSI_Headset_StopImpedanceDriver( h ); CHECK
-        DSI_Headset_SetSampleCallback( h, NULL, NULL ); CHECK /* Might stop the ability to record as well. */
         fprintf(stderr, "\n----------Stopped Impedance Driver-------------\n");
         params->stopFlag = 0;
       }
@@ -304,10 +303,10 @@ int CheckImpedance( DSI_Headset h ){
   * you initialize the headset.
   */
 
-  PrintImpedances( h, 0, "headings" ); CHECK 
-  /* Prints the column headings for our csv output. */
+  // PrintImpedances( h, 0, "headings" ); CHECK 
+  // /* Prints the column headings for our csv output. */
 
-  DSI_Headset_SetSampleCallback( h, PrintImpedances, NULL ); CHECK
+  // DSI_Headset_SetSampleCallback( h, PrintImpedances, NULL ); CHECK
   /*
   * This registers the callback we defined earlier, ensuring that
   * impedances are printed to stdout every time a new sample arrives
