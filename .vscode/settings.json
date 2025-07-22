@@ -1,7 +1,7 @@
 {
     "cmake.configureArgs": [
-        "-DLSL_DIR=C:\\Users\\Eric\\Documents\\Github\\App-WearableSensing\\liblsl-1.16.2-Win_amd64\\lib\\cmake\\LSL",
-        "-DQt5_DIR=C:\\Qt5\\5.15.2\\msvc2019_64\\lib\\cmake\\Qt5"
+        "-DLSL_DIR=YOUR_PATH_TO_LSL_LIBRARY",
+        "-DQt5_DIR=YOUR_PATH_TO_QT5_LIBRARY"
     ],
     "files.associations": {
         "mainwindow.h": "c",
