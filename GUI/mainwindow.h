@@ -34,6 +34,9 @@ private slots:
     // For checking impedance
     void onZCheckBoxToggled(bool checked);
 
+    // For resetting impedance
+    void onResetZButtonClicked();
+
 private:
     Ui::MainWindow *ui;
     QProcess *streamer;
@@ -43,6 +46,9 @@ private:
 
     // For checking impedance
     QCheckBox *ZCheckBox;
+
+    // For resetting impedance
+    QPushButton *resetZButton; // Pointer to your resetZButton
 
 };
 

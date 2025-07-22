@@ -51,26 +51,43 @@
      </widget>
     </item>
     <item row="8" column="2">
-     <widget class="QDialogButtonBox" name="buttonBox">
-      <property name="toolTip">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start/Stop streaming.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-      </property>
-      <property name="standardButtons">
-       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="buttonLayout">
+      <item>
+       <widget class="QDialogButtonBox" name="buttonBox">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start/Stop streaming.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="standardButtons">
+         <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="ResetZButton">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Resets Impedance&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Reset</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     
-    <item row="9" column="2">
+    <item row="8" column="1">
         <widget class="QCheckBox" name="ZCheckBox">
             <property name="toolTip">
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Checks Impedance&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-                <string>Check Z</string>
+                <string>Impedance</string>
             </property>
         </widget>
     </item>
+
+
+
 
     <item row="0" column="1">
      <widget class="QLabel" name="portLabel">

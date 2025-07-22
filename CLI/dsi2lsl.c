@@ -93,7 +93,7 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
     return 0;
 }
 
-/* 
+/**
 * This function runs in a separate thread to continuously check for impedance activity.
 *
 * @param lpParam - Long Pointer to VOID, holds the needed DSI_Headset handle and flags.
