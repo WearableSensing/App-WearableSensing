@@ -1,6 +1,50 @@
 # Wearable Sensing LSL (dsi2lsl)
 
 ---
+## 🔧 How to Use the DSI2LSL GUI
+
+
+
+![alt text](images/image-5.png)
+Before you can start your LSL stream, make sure your headset is properly connected to your computer using bluetooh or usb. Once properly connected, go to ```Device Manager``` and locate ```Ports (COM & LPT)```. On clicking the dropdown menu u should find a name similar to ![alt text](images/image-9.png).
+
+Go back to DSI2LSL and enter ```COM``` followed by the ```#```. You are now ready to start receiving the DSI data.
+![alt text](images/image-8.png)
+
+```Start``` - Begins the active LSL stream.
+```Stop``` - Stops the active LSL stream.
+```Reset``` - Sends an analog reset to the amplifier.
+
+```Impedance``` - If checked, will stream impedance values when ```Start``` is clicked.
+
+
+
+## LSL-TOOLS
+
+Wearable Sensing has created some tools that can work with LSL. You can find them at Wearable Sensing's [github](https://github.com/WearableSensing/lsl-tools).
+
+### Recording Data from DSI2LSL
+
+1. Start DSI2LSL
+2. While DSI2LSL is running, run ```receive.py``` 
+
+This will create a .csv file with the data received from the headset.
+>[!NOTE]
+There are program requirements to run Receive.py, they can be found in the README of lsl-tools
+```
+Usage: 
+       --output
+          The path where data should be written to (default: '.').
+       --stream
+          The stream name configured in the LSL app (default: 'WS-default').
+       --duration
+          The duration in seconds for the data collection to run (default: 10).
+Example:
+        python receive.py --output='./thisFolder' --stream='aStreamName' --duration=2
+        python receive.py --duration=5
+```
+
+
 
 ## Basic Usage
 
