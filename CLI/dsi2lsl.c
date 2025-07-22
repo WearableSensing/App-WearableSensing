@@ -63,6 +63,7 @@ typedef struct {
     volatile int         printFlag;
     volatile int         startFlag;
     volatile int         stopFlag;
+    lsl_outlet            outlet;
 } ThreadParams;
 
 /**
@@ -108,6 +109,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
     while(KeepRunning == 1){
       if(params->startFlag){
         CheckImpedance( h ); CHECK
+        DSI_Headset_SetSampleCallback( h, PrintImpedances, params->outlet ); CHECK
         params->startFlag = 0;
       }
       // uncomment the following lines to continuously print impedance check
@@ -116,6 +118,8 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       // }
       if(params->stopFlag){
         DSI_Headset_StopImpedanceDriver( h ); CHECK
+        PrintImpedances( h, 0, "headings"); CHECK 
+        DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
         fprintf(stderr, "\n----------Stopped Impedance Driver-------------\n");
         params->stopFlag = 0;
       }
@@ -179,6 +183,7 @@ int main( int argc, const char * argv[] )
   zFLag.printFlag = 0; //used to print impedance continuously
   zFLag.startFlag = 0;
   zFLag.stopFlag = 0;
+  zFLag.outlet = outlet; /* Valid LSL outlet */
 
   /* Create the impedance thread */
   iThread = CreateThread(NULL, 0, ImpedanceThread, &zFLag, 0, NULL);
@@ -302,11 +307,7 @@ int CheckImpedance( DSI_Headset h ){
   * allow impedances to be measured. It is off by default when
   * you initialize the headset.
   */
-
-  // PrintImpedances( h, 0, "headings" ); CHECK 
   // /* Prints the column headings for our csv output. */
-
-  // DSI_Headset_SetSampleCallback( h, PrintImpedances, NULL ); CHECK
   /*
   * This registers the callback we defined earlier, ensuring that
   * impedances are printed to stdout every time a new sample arrives
@@ -580,36 +581,14 @@ int GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const c
 
 
 
-void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
+void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * outlet )
 {
-    unsigned int sourceIndex;
-    unsigned int numberOfSources = DSI_Headset_GetNumberOfSources( h );
-
-    /*
-    * This function uses `userData` as nothing more than a crude boolean
-    * flag: when it is non-zero, we'll print headings; when it is zero,
-    * we'll print impedance values.
-    */
-
-    if( userData ) fprintf( stdout, "%9s",    "Time" );
-    else           fprintf( stdout, "% 9.4f", packetOffsetTime );
-
-    for( sourceIndex = 0; sourceIndex < numberOfSources; sourceIndex++ )
-    {
-        DSI_Source s = DSI_Headset_GetSourceByIndex( h, sourceIndex );
-
-        if( DSI_Source_IsReferentialEEG( s ) && ! DSI_Source_IsFactoryReference( s ) )
-        {
-            if( userData ) fprintf( stdout, ",%9s",    DSI_Source_GetName( s ) );
-            else           fprintf( stdout, ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
-        }
-    }
-
-    /*
-    * The common-mode follower (CMF) sensor, at the factory reference position,
-    * is a special case:
-    */
-
-    if( userData ) fprintf( stdout, ",   CMF=%s\n", DSI_Headset_GetFactoryReferenceString( h ) );
-    else           fprintf( stdout, ",% 9.4f\n",    DSI_Headset_GetImpedanceCMF( h ) );
+  unsigned int channelIndex;
+  unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
+  if (sample == NULL) 
+		sample = (float *)malloc( numberOfChannels * sizeof(float));
+  for(channelIndex=0; channelIndex < numberOfChannels; channelIndex++){
+    sample[channelIndex] = (float) DSI_Source_GetImpedanceEEG( DSI_Headset_GetSourceByIndex( h, channelIndex ) );
+  }
+  lsl_push_sample_f(outlet, sample);
 }
