@@ -46,20 +46,6 @@ add_executable(dsi2lsl
 	${DSI-API}/DSI.h
 )
 
-# # creates a worker executable
-# add_executable(worker
-# 	${LSL-CLI}/worker.c
-# 	${DSI-API}/DSI_API_Loader.c
-# )
-# target_include_directories(worker 
-# 	PRIVATE 
-# 	"${DSI-API}" 
-# )
-# target_link_libraries(worker 
-# 	PRIVATE
-# 	LSL::lsl 
-# 	Threads::Threads
-# )
 
 # the dependencies for LSL wearbale sensing module
 target_link_libraries(dsi2lsl 

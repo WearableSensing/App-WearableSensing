@@ -12,7 +12,8 @@
 * incoming data, while the impedance thread checks for impedance activity and
 * prints results.
 *
-* Copyright (C) 2014-2020 Syntrogi Inc dba Intheon.
+* Please create a GitHub Issue or contact support@wearablesensing.com if you
+* encounter any issues or would like to request new features.
 */
 
 #include "DSI.h"
@@ -50,13 +51,16 @@ int CheckError( void ){
 }
 #define CHECK   if( CheckError() != 0 ) return -1;
 #define MAX_COMMAND_LENGTH 256
-/* Time delay value used with Sleep() and DSI_Sleep() function calls */
+/* Time delay value used with Sleep() and DSI_Sleep() function calls 
+* to prevent busy-waiting and allow other threads to run.
+* This value is set to 2 seconds, which is sufficient for most operations
+*/
 #define BUFFER_SECONDS 2
 
 /* Custom Struct to handle impedance flags. */
 typedef struct {
     DSI_Headset h;
-    volatile int         boolFlag;
+    volatile int         printFlag;
     volatile int         startFlag;
     volatile int         stopFlag;
 } ThreadParams;
@@ -70,7 +74,7 @@ typedef struct {
 */
 DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
     DSI_Headset h = (DSI_Headset)lpParam;
-    printf("DSI processing thread started.\n");
+    fprintf(stdout, "DSI processing thread started.\n");
 
     while (KeepRunning == 1) {
         /* Only call Idle if the main thread hasn't paused us. */
@@ -85,7 +89,7 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
         Sleep(BUFFER_SECONDS);
     }
 
-    printf("DSI processing thread finished.\n");
+    fprintf(stdout, "DSI processing thread finished.\n");
     return 0;
 }
 
@@ -97,7 +101,7 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
 * @return 0 on success
 */
 DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
-    printf("DSI impedance thread started.\n");
+    fprintf(stdout, "DSI impedance thread started.\n");
     ThreadParams *params = (ThreadParams *)lpParam;
     DSI_Headset h = params->h;
 
@@ -107,7 +111,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
         params->startFlag = 0;
       }
       // uncomment the following lines to continuously print impedance check
-      // while (params->boolFlag) {
+      // while (params->printFlag) {
       //     DSI_Headset_Receive( h, 0.1, 0 ); CHECK
       // }
       if(params->stopFlag){
@@ -123,7 +127,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       }
     }
     
-    printf("DSI impedance thread finished.\n");
+    fprintf(stdout, "DSI impedance thread finished.\n");
     return 0;
 }
 
@@ -160,20 +164,20 @@ int main( int argc, const char * argv[] )
   const char * streamName = GetStringOpt(  argc, argv, "lsl-stream-name",   "m" );
   if (!streamName) 
 		streamName = "WS-default";
-  printf("Initializing %s outlet\n", streamName);
+  fprintf(stdout, "Initializing %s outlet\n", streamName);
   lsl_outlet outlet = InitLSL(h, streamName); CHECK; /* Stream outlet */
 
   /* Set the sample callback (forward every data sample received to LSL) */
   DSI_Headset_SetSampleCallback( h, OnSample, outlet ); CHECK
 
   /* Start data acquisition */
-  printf("Starting data acquisition\n");
+  fprintf(stdout, "Starting data acquisition\n");
   DSI_Headset_StartDataAcquisition( h ); CHECK
 
   /* Custom struct for impedance flags */
   ThreadParams zFLag;
   zFLag.h = h; /* Valid DSI_Headset variable */
-  zFLag.boolFlag = 0; //used to print impedance continuously
+  zFLag.printFlag = 0; //used to print impedance continuously
   zFLag.startFlag = 0;
   zFLag.stopFlag = 0;
 
@@ -194,7 +198,7 @@ int main( int argc, const char * argv[] )
   Sleep(BUFFER_SECONDS);
   fprintf(stderr, "Setup Ready\n");
   /* Start streaming */
-  printf("Streaming...\n");
+  fprintf(stdout, "Streaming...\n");
   while( KeepRunning==1 ){
     
     /* 
@@ -204,7 +208,7 @@ int main( int argc, const char * argv[] )
     */
     if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
         /* Handle potential error or EOF (End Of File) condition. */
-        printf("Error reading input or EOF reached.\n");
+        fprintf(stdout, "Error reading input or EOF reached.\n");
         break; /* Exit the loop on error */
     }
 
@@ -238,21 +242,21 @@ int main( int argc, const char * argv[] )
 
   /* Closing the threads */
   if (sThread != NULL) {
-      printf("Waiting for DSI thread to terminate...\n");
+      fprintf(stdout, "Waiting for DSI thread to terminate...\n");
       WaitForSingleObject(sThread, INFINITE);
       CloseHandle(sThread);
-      printf("DSI thread has terminated.\n");
+      fprintf(stdout, "DSI thread has terminated.\n");
   }
   if (iThread != NULL) {
-      printf("Waiting for impedance thread to terminate...\n");
+      fprintf(stdout, "Waiting for impedance thread to terminate...\n");
       WaitForSingleObject(iThread, INFINITE);
       CloseHandle(iThread);
-      printf("Impedance thread has terminated.\n");
+      fprintf(stdout, "Impedance thread has terminated.\n");
   }
   
 
   /* Gracefully exit the program */
-  printf("\n%s will exit now...\n", argv[ 0 ]);
+  fprintf(stdout, "\n%s will exit now...\n", argv[ 0 ]);
   lsl_destroy_outlet(outlet);
   return Finish( h );
 }
@@ -265,20 +269,19 @@ int main( int argc, const char * argv[] )
  */
 int startAnalogReset(DSI_Headset h) {
     if (h == NULL) {
-        printf("Error: Invalid headset handle.\n");
+        fprintf(stderr, "Error: Invalid headset handle.\n");
         return -1;
     }
     fprintf( stderr, "%s\n", "---------Starting Analog Reset----------------\n" ); CHECK
   
     
     /* Check initial analog reset mode */
-    printf("--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
+    fprintf(stdout, "--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
     
 
     DSI_Headset_StartAnalogReset(h);
     CHECK;
     
-    /* printf("--> Waiting 2 seconds for reset to complete...\n"); */
     DSI_Sleep(BUFFER_SECONDS);
     
     fprintf( stderr, "%s\n", "---------Analog Reset Complete----------------\n" ); 
@@ -479,7 +482,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   reference = (char*)DSI_Headset_GetReferenceString(h);
   ref = lsl_append_child(desc,"reference");
   lsl_append_child_value(ref,"label", reference);
-  printf("REF: %s\n", reference);
+  fprintf(stdout, "REF: %s\n", reference);
 
   /* Make a new outlet (chunking: default, buffering: 360 seconds). */
   return lsl_create_outlet(info,0,360);
@@ -589,8 +592,8 @@ void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
     * we'll print impedance values.
     */
 
-    if( userData ) printf( "%9s",    "Time" );
-    else           printf( "% 9.4f", packetOffsetTime );
+    if( userData ) fprintf( stdout, "%9s",    "Time" );
+    else           fprintf( stdout, "% 9.4f", packetOffsetTime );
 
     for( sourceIndex = 0; sourceIndex < numberOfSources; sourceIndex++ )
     {
@@ -598,8 +601,8 @@ void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData )
 
         if( DSI_Source_IsReferentialEEG( s ) && ! DSI_Source_IsFactoryReference( s ) )
         {
-            if( userData ) printf( ",%9s",    DSI_Source_GetName( s ) );
-            else           printf( ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
+            if( userData ) fprintf( stdout, ",%9s",    DSI_Source_GetName( s ) );
+            else           fprintf( stdout, ",% 9.4f", DSI_Source_GetImpedanceEEG( s ) );
         }
     }
 
