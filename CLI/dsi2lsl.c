@@ -274,13 +274,9 @@ int startAnalogReset(DSI_Headset h) {
         fprintf(stderr, "Error: Invalid headset handle.\n");
         return -1;
     }
-    // fprintf( stderr, "%s\n", "--------- Reset ----------------\n" ); CHECK
-  
-    
     /* Check initial analog reset mode */
     fprintf(stdout, "--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
     
-
     DSI_Headset_StartAnalogReset(h); CHECK;
     return 0;
 }

@@ -41,7 +41,8 @@ const QString defaultValule = "(use default)";
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
-    counter(0)
+    counter(0),
+    zCheckState(false)
 {
     ui->setupUi(this);
 
@@ -89,10 +90,11 @@ MainWindow::~MainWindow()
     * @return void
 */
 void MainWindow::onZCheckBoxToggled(bool checked){
-    if (this->streamer && this->streamer->state() == QProcess::Running) {
-        // The command to send, including the newline character to simulate 'Enter'
-        QByteArray command;
-        if(checked){
+    this->zCheckState = checked;
+}
+void MainWindow::handleZCheckBoxToggled(){
+    QByteArray command;
+        if(this->zCheckState){
             command = "checkZOn\n";
             this->ui->console->append("\n---------- Impedance Driver On -----------\n");
         }else{
@@ -101,7 +103,6 @@ void MainWindow::onZCheckBoxToggled(bool checked){
         }
         // Write the command to the process's standard input
         this->streamer->write(command);
-    } 
 }
 
 /**
@@ -141,6 +142,7 @@ void MainWindow::on_buttonBox_accepted()
     QStringList arguments = this->parseArguments();
     this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
+    handleZCheckBoxToggled(); // Handle the Z checkbox state
     this->counter = 0;
     this->timerId = this->startTimer(1000);
     this->ui->ZCheckBox->setEnabled(false); // Enable the ZCheckBox

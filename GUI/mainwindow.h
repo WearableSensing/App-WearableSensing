@@ -33,6 +33,7 @@ private slots:
     void timerEvent(QTimerEvent *event);
     // For checking impedance
     void onZCheckBoxToggled(bool checked);
+    void handleZCheckBoxToggled();
 
     // For resetting impedance
     void onResetZButtonClicked();
@@ -46,6 +47,7 @@ private:
 
     // For checking impedance
     QCheckBox *ZCheckBox;
+    bool zCheckState;
 
     // For resetting impedance
     QPushButton *resetZButton; // Pointer to your resetZButton
