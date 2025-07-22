@@ -9,7 +9,7 @@ Please visit the official Wearable Sensing [github](https://github.com/WearableS
 ## Build from Source Guide
 This documentation last updated July, 2025.
 
-
+This program will only work on Windows. 
 
 This guide provides instructions for locally compiling and running the Wearable Sensing dsi2lsl plugin. Following these steps will allow you to set up the necessary environment and dependencies to build two executable files from the source code:
 
@@ -106,7 +106,7 @@ With the kit and variant selected, you can now generate the project build files.
 
 1. Open the Command Palette ```(Ctrl+Shift+P)```.
 
-2. Type and select ```>CMake: Configure```.
+2. Type and select ```>CMake: Build```.
 
 3. This will compile the project. Once it has finished you fill find ```dsi2lsl.exe``` and ```dsi2lslGUI.exe``` inside the ```build/Release``` folder.
 
@@ -123,12 +123,28 @@ dsi2lslGUI.exe
 A useful search utility can make this process much easier. This guide used the [Everything search tool](https://www.voidtools.com/) to instantly locate the neccessary files.
 
 #### Gathering the Dependency Files
-You need to copy specific files from the Qt, DSI, and LSL folders into your project's ```build/Release``` directory. It's critical to choose the files that match the compiler you used for the build. For this guide, we used the ```64-bit MSVC 2019 compiler```, so all the file paths will contain ```msvc2019_64```.
+You need to copy specific files from the Qt, DSI, and LSL folders into your project's ```build\Release``` directory. It's critical to choose the files that match the compiler you used for the build. For this guide, we used the ```64-bit MSVC 2019 compiler```, so all the file paths will contain ```msvc2019_64```.
 
-(```Qt5Core.dll, Qt5Gui.dll, Qt5Widgets.dll, qwindows.dll```) will be located in your Qt installation directory . (```libDSI.dll *name may be different```) will be located in the DSI API folder.(```lsl.dll```) will be located in the LSL Library folder. Copy and paste the list of dependencies found in your installation directory to the ```Release folder```. Your ```build/Release`` directory will look as followed
+(```Qt5Core.dll, Qt5Gui.dll, Qt5Widgets.dll, qwindows.dll```) will be located in your Qt installation directory.
+```
+Qt5\5.15.2\msvc2019_64\bin\Qt5Core.dll
+Qt5\5.15.2\msvc2019_64\bin\Qt5Gui.dll
+Qt5\5.15.2\msvc2019_64\bin\Qt5Widgets.dll
+Qt5\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll
+```
 
+(```libDSI-Windows-x86_64.dll```) will be located in the DSI API folder. 
+> [!IMPORTANT]
+> You will need to rename the file ```libDSI-Windows-x86_64.dll``` to ```libDSI.dll```.
+
+(```lsl.dll```) will be located in the LSL Library folder.
+```
+DSI_API_v1.18.2_04102023\libDSI.dll
+liblsl-1.16.2-Win_amd64\bin\lsl.dll
+```
+Copy and paste the dependency files from their respective downloaded folders to the ```Release``` folder. 
 #### Final Folder Structure
-After copying all the files, your ```build/Release``` directory should look like this
+After copying all the files, your ```build/Release``` directory should look as followed:
 ```
 platforms
     |--- qwindows.dll

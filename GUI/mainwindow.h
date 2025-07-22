@@ -38,6 +38,7 @@ private:
     int counter;
     QProgressBar *progressBar;
 
+    bool zbuttonstate;
 };
 
 #endif // MAINWINDOW_H

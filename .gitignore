@@ -55,3 +55,8 @@ compile_commands.json
 /DSI_API*/
 /liblsl*/
 /build/
+/API*/
+/LSL/*
+
+/dsi-api*/
+/dsi-api-v1.18.2/

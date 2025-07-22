@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(dsi2lslGUI
 	LANGUAGES C CXX
 	VERSION 1.13.0)
@@ -13,7 +13,7 @@ find_package(LSL REQUIRED
 	PATH_SUFFIXES share/LSL)
 get_filename_component(LSL_PATH ${LSL_CONFIG} DIRECTORY)
 message(STATUS "Found LSL lib in ${LSL_PATH}")
-LSLAPP_Setup_Boilerplate()
+set(LSL_COMFY_DEFAULTS ON)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -43,12 +43,15 @@ add_executable(${PROJECT_NAME} MACOSX_BUNDLE WIN32
 add_executable(dsi2lsl 
     ${LSL-CLI}/dsi2lsl.c
     ${DSI-API}/DSI_API_Loader.c
+	${DSI-API}/DSI.h
 )
+
 
 # the dependencies for LSL wearbale sensing module
 target_link_libraries(dsi2lsl 
 	PRIVATE
 	LSL::lsl 
+	Threads::Threads
 )
 target_include_directories(dsi2lsl 
 	PRIVATE 

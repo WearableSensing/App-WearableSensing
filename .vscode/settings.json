@@ -12,7 +12,6 @@
         "iterator": "cpp",
         "memory": "cpp",
         "xmemory": "cpp",
-        "xutility": "cpp"
     }
 
 }
