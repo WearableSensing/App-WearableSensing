@@ -108,7 +108,8 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
 
     while(KeepRunning == 1){
       if(params->startFlag){
-        CheckImpedance( h ); CHECK
+        DSI_Headset_StartImpedanceDriver( h ); CHECK
+        // PrintImpedances( h, 0, "headings"); CHECK 
         DSI_Headset_SetSampleCallback( h, PrintImpedances, params->outlet ); CHECK
         params->startFlag = 0;
       }
@@ -118,9 +119,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       // }
       if(params->stopFlag){
         DSI_Headset_StopImpedanceDriver( h ); CHECK
-        PrintImpedances( h, 0, "headings"); CHECK 
         DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
-        fprintf(stderr, "\n----------Stopped Impedance Driver-------------\n");
         params->stopFlag = 0;
       }
       
@@ -139,7 +138,6 @@ int main( int argc, const char * argv[] )
   /* First load the libDSI dynamic library. */
   const char * dllname = NULL;
   char command[MAX_COMMAND_LENGTH]; /* Buffer to store the user's command */
-  char *token;                      /* Pointer to store tokens (parts of the command) */
 
   HANDLE sThread, iThread;
 
@@ -276,20 +274,14 @@ int startAnalogReset(DSI_Headset h) {
         fprintf(stderr, "Error: Invalid headset handle.\n");
         return -1;
     }
-    fprintf( stderr, "%s\n", "---------Starting Analog Reset----------------\n" ); CHECK
+    // fprintf( stderr, "%s\n", "--------- Reset ----------------\n" ); CHECK
   
     
     /* Check initial analog reset mode */
     fprintf(stdout, "--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
     
 
-    DSI_Headset_StartAnalogReset(h);
-    CHECK;
-    
-    DSI_Sleep(BUFFER_SECONDS);
-    
-    fprintf( stderr, "%s\n", "---------Analog Reset Complete----------------\n" ); 
-    fflush(stderr);
+    DSI_Headset_StartAnalogReset(h); CHECK;
     return 0;
 }
 
@@ -299,23 +291,6 @@ int startAnalogReset(DSI_Headset h) {
  * @param h - Valid DSI headset handle
  * @return 0 on success, non-zero on error.
  */
-int CheckImpedance( DSI_Headset h ){
-  fprintf( stderr, "%s\n", "---------Starting Impedance Driver----------------\n" ); CHECK
-  DSI_Headset_StartImpedanceDriver( h ); CHECK
-  /*
-  * The impedance driver injects current at 110Hz and 130Hz, to
-  * allow impedances to be measured. It is off by default when
-  * you initialize the headset.
-  */
-  // /* Prints the column headings for our csv output. */
-  /*
-  * This registers the callback we defined earlier, ensuring that
-  * impedances are printed to stdout every time a new sample arrives
-  * during `DSI_Headset_Idle()` or `DSI_Headset_Receive()`.
-  */
-  return 0;
-}
-
 
 /* Handler called on every sample, immediately forwards to LSL */
 void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)

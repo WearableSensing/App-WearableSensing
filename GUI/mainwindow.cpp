@@ -63,6 +63,12 @@ MainWindow::MainWindow(QWidget *parent) :
     this->progressBar->setTextVisible(false);
     this->streamer = new QProcess(this);
     this->streamer->setProcessChannelMode(QProcess::MergedChannels);
+    // Connecting Impedance button
+    connect(ui->ZCheckBox, &QCheckBox::toggled, this, &MainWindow::onZCheckBoxToggled);
+    connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
+    // Set input arguments to the streamer
+    QStringList arguments = this->parseArguments();
+    this->streamer->start(program, arguments);
 }
 
 
@@ -91,16 +97,14 @@ void MainWindow::onZCheckBoxToggled(bool checked){
         QByteArray command;
         if(checked){
             command = "checkZOn\n";
-            // this->ui->console->append("i'm on");
+            this->ui->console->append("\n---------- Impedance Driver On -----------\n");
         }else{
             command = "checkZOff\n";
-            // this->ui->console->append("i'm off");
+            this->ui->console->append("\n---------- Impedance Driver Off ----------\n");
         }
         // Write the command to the process's standard input
         this->streamer->write(command);
-    } else {
-        this->ui->console->append("Streamer is not running. Cannot send command.");
-    }
+    } 
 }
 
 /**
@@ -117,6 +121,7 @@ void MainWindow::onResetZButtonClicked(){
 
         // Write the command to the process's standard input
         this->streamer->write(command);
+        this->ui->console->append("---------- Reset ----------\n");
 
     } else {
         this->ui->console->append("Streamer is not running. Cannot send command.");
@@ -134,16 +139,11 @@ void MainWindow::on_buttonBox_accepted()
 {
     if(this->streamer != NULL)
         this->on_buttonBox_rejected();
-    // Set input arguments to the streamer
-    QStringList arguments = this->parseArguments();
-    this->streamer->start(program, arguments);
+    
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
-    // Connecting Impedance button
-    connect(ui->ZCheckBox, &QCheckBox::toggled, this, &MainWindow::onZCheckBoxToggled);
-    connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
-
     this->counter = 0;
     this->timerId = this->startTimer(1000);
+    this->ui->ZCheckBox->setEnabled(false); // Enable the ZCheckBox
 }
 
 /** 
@@ -177,7 +177,10 @@ void MainWindow::timerEvent(QTimerEvent *event)
 void MainWindow::writeToConsole()
 {
     while(this->streamer->canReadLine()){
-        this->ui->console->append(this->streamer->readLine());
+        QString line = this->streamer->readLine();          // Read the line into a string
+        if (!line.contains("netinterfaces.cpp") && !line.contains("udp_server.cpp") && !line.contains("common.cpp") && !line.contains("api_config.cpp")) {         // Check if the line contains "netinterfaces.cpp"
+            this->ui->console->append(line);                 // If it doesn't, add it to the console
+        }
     }
 }
 
@@ -195,7 +198,7 @@ void MainWindow::on_buttonBox_rejected()
         this->killTimer(this->timerId);
         this->counter = 0;
         this->ui->statusBar->setVisible(false);
-        this->ui->ZCheckBox->setChecked(false); // Uncheck the ZCheckBox
+        this->ui->ZCheckBox->setEnabled(true); // Enable the ZCheckBox
     }
 
 }
