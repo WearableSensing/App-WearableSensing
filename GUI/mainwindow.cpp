@@ -66,9 +66,6 @@ MainWindow::MainWindow(QWidget *parent) :
     // Connecting Impedance button
     connect(ui->ZCheckBox, &QCheckBox::toggled, this, &MainWindow::onZCheckBoxToggled);
     connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
-    // Set input arguments to the streamer
-    QStringList arguments = this->parseArguments();
-    this->streamer->start(program, arguments);
 }
 
 
@@ -137,9 +134,12 @@ void MainWindow::onResetZButtonClicked(){
 */
 void MainWindow::on_buttonBox_accepted()
 {
-    if(this->streamer != NULL)
+    if (this->streamer && this->streamer->state() == QProcess::Running) {
         this->on_buttonBox_rejected();
-    
+    }
+    // Set input arguments to the streamer
+    QStringList arguments = this->parseArguments();
+    this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
     this->counter = 0;
     this->timerId = this->startTimer(1000);
