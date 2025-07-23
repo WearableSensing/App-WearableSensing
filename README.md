@@ -11,6 +11,7 @@ Wireless connection will be found in ```Bluetooth```, and the wired connection w
 
 
 Go back to ```dsi2lslGUI``` and enter ```COM``` followed by the number in the dropdown. You are now ready to start receiving the DSI data.
+
 ![alt text](images/image-8.png)
 
 ```Start``` - Begins the active LSL stream.
