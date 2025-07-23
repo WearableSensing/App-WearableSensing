@@ -1,5 +1,9 @@
-// Wearable Sensing LSL GUI
-// Copyright (C) 2014-2020 Syntrogi Inc dba Intheon.
+/* 
+ * Wearable Sensing LSL GUI
+ *
+ * Please create a GitHub Issue or contact support@wearablesensing.com if you
+ * encounter any issues or would like to request new features.
+ */
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -15,10 +19,10 @@
 #endif
 
 /*
-    * This program is a GUI for the dsi2lsl console application;
-    * it works by running dsi2lsl as a subprocess, and passes in
-    * the configuration as command-line arguments.
-*/
+ * This program is a GUI for the dsi2lsl console application;
+ * it works by running dsi2lsl as a subprocess, and passes in
+ * the configuration as command-line arguments.
+ */
 #ifdef WIN32
 const QString program = "dsi2lsl.exe";
 #else
@@ -33,11 +37,11 @@ const QString defaultValule = "(use default)";
 
 
 /**
-    * Constructor for MainWindow
-    * It initializes the UI, sets up the environment, and prepares the streamer process.
-    * @param QWidget - The parent widget for the main window.
-    * @return void
-*/
+ * Constructor for MainWindow
+ * It initializes the UI, sets up the environment, and prepares the streamer process.
+ * @param QWidget - The parent widget for the main window.
+ * @return void
+ */
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
@@ -46,7 +50,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    // Set LD_LIBRARY_PATH
+    /* Set LD_LIBRARY_PATH */
     #ifndef WIN32
     char cdir[256];
     std:setenv("LD_LIBRARY_PATH",getcwd(cdir, 256), 1);
@@ -64,17 +68,17 @@ MainWindow::MainWindow(QWidget *parent) :
     this->progressBar->setTextVisible(false);
     this->streamer = new QProcess(this);
     this->streamer->setProcessChannelMode(QProcess::MergedChannels);
-    // Connecting Impedance button
+    /* Connecting Impedance button */
     connect(ui->ZCheckBox, &QCheckBox::toggled, this, &MainWindow::onZCheckBoxToggled);
     connect(ui->ResetZButton, &QPushButton::clicked, this, &MainWindow::onResetZButtonClicked);
 }
 
 
 /**
-    * Destructor for MainWindow
-    * It stops the streamer process if it is running and deletes the UI.
-    * @return void
-*/
+ * Destructor for MainWindow
+ * It stops the streamer process if it is running and deletes the UI.
+ * @return void
+ */
 MainWindow::~MainWindow()
 {
     this->on_buttonBox_rejected();
@@ -82,13 +86,13 @@ MainWindow::~MainWindow()
 }
 
 /**
-    * This function is called when the user clicks the "Z" button.
-    * It toggles the state of the Z button and sends a command to the streamer process
-    * to check the impedance status.
-    * If the streamer is not running, it appends a message to the console.
-    * @param checked - The state of the Z checkbox (true if checked, false if unchecked).
-    * @return void
-*/
+ * This function is called when the user clicks the "Z" button.
+ * It toggles the state of the Z button and sends a command to the streamer process
+ * to check the impedance status.
+ * If the streamer is not running, it appends a message to the console.
+ * @param checked - The state of the Z checkbox (true if checked, false if unchecked).
+ * @return void
+ */
 void MainWindow::onZCheckBoxToggled(bool checked){
     this->zCheckState = checked;
 }
@@ -106,18 +110,18 @@ void MainWindow::handleZCheckBoxToggled(){
 }
 
 /**
-    * This function is called when the user clicks the "Reset Z" button.
-    * It sends a command to the streamer process to reset the impedance status.
-    * @return void
-*/
+ * This function is called when the user clicks the "Reset Z" button.
+ * It sends a command to the streamer process to reset the impedance status.
+ * @return void
+ */
 void MainWindow::onResetZButtonClicked(){
     if (this->streamer && this->streamer->state() == QProcess::Running) {
-        // The command to send, including the newline character to simulate 'Enter'
+        /* The command to send, including the newline character to simulate 'Enter'. */
         QByteArray command;
 
         command = "resetZ\n";
 
-        // Write the command to the process's standard input
+        /* Write the command to the process's standard input. */
         this->streamer->write(command);
         this->ui->console->append("---------- Reset ----------\n");
 
@@ -127,34 +131,35 @@ void MainWindow::onResetZButtonClicked(){
 }
 
 /**
-    * This function is called when the user clicks the "Start" button.
-    * It checks if the streamer is already running, and if so, it stops it.
-    * Then it sets up the input arguments for the streamer and starts it.
-    * It also connects the output of the streamer to a slot that writes to the console.
-    * @return void
-*/
+ * This function is called when the user clicks the "Start" button.
+ * It checks if the streamer is already running, and if so, it stops it.
+ * Then it sets up the input arguments for the streamer and starts it.
+ * It also connects the output of the streamer to a slot that writes to the console.
+ * 
+ * @return void
+ */
 void MainWindow::on_buttonBox_accepted()
 {
     if (this->streamer && this->streamer->state() == QProcess::Running) {
         this->on_buttonBox_rejected();
     }
-    // Set input arguments to the streamer
+    /* Set input arguments to the streamer */
     QStringList arguments = this->parseArguments();
     this->streamer->start(program, arguments);
     connect(this->streamer, SIGNAL(readyReadStandardOutput()), this, SLOT(writeToConsole()));
-    handleZCheckBoxToggled(); // Handle the Z checkbox state
+    handleZCheckBoxToggled(); /* Handle the Z checkbox state */
     this->counter = 0;
     this->timerId = this->startTimer(1000);
-    this->ui->ZCheckBox->setEnabled(false); // Enable the ZCheckBox
+    this->ui->ZCheckBox->setEnabled(false); /* Enable the ZCheckBox */
 }
 
 /** 
-    * This function is called when the timer event occurs.
-    * It updates the progress bar and status bar message.
-    * If the streamer process is not running, it stops the timer and resets the UI.
-    * @param event - The timer event that triggered this function.
-    * @return void
-*/
+ * This function is called when the timer event occurs.
+ * It updates the progress bar and status bar message.
+ * If the streamer process is not running, it stops the timer and resets the UI.
+ * @param event - The timer event that triggered this function.
+ * @return void
+ */
 void MainWindow::timerEvent(QTimerEvent *event)
 {
     if(this->streamer->state()==QProcess::NotRunning)
@@ -172,26 +177,26 @@ void MainWindow::timerEvent(QTimerEvent *event)
 }
 
 /** 
-    * This function reads the output from the streamer process and appends it to the console.
-    * It is called whenever there is new data available from the streamer.
-    * @return void
-*/
+ * This function reads the output from the streamer process and appends it to the console.
+ * It is called whenever there is new data available from the streamer.
+ * @return void
+ */
 void MainWindow::writeToConsole()
 {
     while(this->streamer->canReadLine()){
-        QString line = this->streamer->readLine();          // Read the line into a string
-        if (!line.contains("netinterfaces.cpp") && !line.contains("udp_server.cpp") && !line.contains("common.cpp") && !line.contains("api_config.cpp")) {         // Check if the line contains "netinterfaces.cpp"
-            this->ui->console->append(line);                 // If it doesn't, add it to the console
+        QString line = this->streamer->readLine(); /* Read the line into a string */
+        if (!line.contains("netinterfaces.cpp") && !line.contains("udp_server.cpp") && !line.contains("common.cpp") && !line.contains("api_config.cpp")) { /* Check if the line contains "netinterfaces.cpp" */
+            this->ui->console->append(line); /* If it doesn't, add it to the console */
         }
     }
 }
 
 
 /** 
-    * This function is called when the user clicks the "Stop" button.
-    * It stops the streamer process and resets the UI elements.
-    * @return void
-*/
+ * This function is called when the user clicks the "Stop" button.
+ * It stops the streamer process and resets the UI elements.
+ * @return void
+ */
 void MainWindow::on_buttonBox_rejected()
 {
     if(this->streamer != NULL){
@@ -200,16 +205,16 @@ void MainWindow::on_buttonBox_rejected()
         this->killTimer(this->timerId);
         this->counter = 0;
         this->ui->statusBar->setVisible(false);
-        this->ui->ZCheckBox->setEnabled(true); // Enable the ZCheckBox
+        this->ui->ZCheckBox->setEnabled(true); /* Enable the ZCheckBox */
     }
 
 }
 
 /**
-    * Parses the arguments from the GUI input fields and returns a QStringList
-    * containing the command-line arguments for the dsi2lsl process.
-    * @return QStringList - The list of arguments to be passed to the dsi2lsl process.
-*/
+ * Parses the arguments from the GUI input fields and returns a QStringList
+ * containing the command-line arguments for the dsi2lsl process.
+ * @return QStringList - The list of arguments to be passed to the dsi2lsl process.
+ */
 QStringList MainWindow::parseArguments()
 {
     QStringList arguments;

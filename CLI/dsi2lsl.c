@@ -1,20 +1,20 @@
 /*
-* This file implements the integration between Wearable Sensing DSI C/C++ API and
-* the LSL library.
-*
-* This program is used for acquiring data from a DSI headset and streaming it
-* over the Lab Streaming Layer (LSL) protocol, which allows for real-time
-* data acquisition and analysis.
-
-* This program utilizes windows threads to handle the DSI headset processing
-* and impedance checking in parallel, allowing for real-time data acquisition.
-* DSI headset processing threads continuously call DSI_Headset_Idle to process
-* incoming data, while the impedance thread checks for impedance activity and
-* prints results.
-*
-* Please create a GitHub Issue or contact support@wearablesensing.com if you
-* encounter any issues or would like to request new features.
-*/
+ * This file implements the integration between Wearable Sensing DSI C/C++ API and
+ * the LSL library.
+ *
+ * This program is used for acquiring data from a DSI headset and streaming it
+ * over the Lab Streaming Layer (LSL) protocol, which allows for real-time
+ * data acquisition and analysis.
+ *
+ * This program utilizes windows threads to handle the DSI headset processing
+ * and impedance checking in parallel, allowing for real-time data acquisition.
+ * DSI headset processing threads continuously call DSI_Headset_Idle to process
+ * incoming data, while the impedance thread checks for impedance activity and
+ * prints results.
+ *
+ * Please create a GitHub Issue or contact support@wearablesensing.com if you
+ * encounter any issues or would like to request new features.
+ */
 
 #include "DSI.h"
 #include "lsl_c.h"
@@ -52,9 +52,9 @@ int CheckError( void ){
 #define CHECK   if( CheckError() != 0 ) return -1;
 #define MAX_COMMAND_LENGTH 256
 /* Time delay value used with Sleep() and DSI_Sleep() function calls 
-* to prevent busy-waiting and allow other threads to run.
-* This value is set to 2 seconds, which is sufficient for most operations
-*/
+ * to prevent busy-waiting and allow other threads to run.
+ * This value is set to 2 seconds, which is sufficient for most operations
+ */
 #define BUFFER_SECONDS 2
 
 /* Custom Struct to handle impedance flags. */
@@ -67,12 +67,12 @@ typedef struct {
 } ThreadParams;
 
 /**
-* This function runs in a separate thread to continuously call DSI_Headset_Idle.
-*
-* @param lpParam - Long Pointer to VOID, holds the needed DSI_Headset handle.
-*                  This is cast to DSI_Headset type within the function.
-* @return 0 on success, non-zero on error.
-*/
+ * This function runs in a separate thread to continuously call DSI_Headset_Idle.
+ *
+ * @param lpParam - Long Pointer to VOID, holds the needed DSI_Headset handle.
+ *                  This is cast to DSI_Headset type within the function.
+ * @return 0 on success, non-zero on error.
+ */
 DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
     DSI_Headset h = (DSI_Headset)lpParam;
     fprintf(stdout, "DSI processing thread started.\n");
@@ -95,12 +95,12 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
 }
 
 /**
-* This function runs in a separate thread to continuously check for impedance activity.
-*
-* @param lpParam - Long Pointer to VOID, holds the needed DSI_Headset handle and flags.
-*                  This is cast to ThreadParams type within the function.
-* @return 0 on success
-*/
+ * This function runs in a separate thread to continuously check for impedance activity.
+ *
+ * @param lpParam - Long Pointer to VOID, holds the needed DSI_Headset handle and flags.
+ *                  This is cast to ThreadParams type within the function.
+ * @return 0 on success
+ */
 DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
     fprintf(stdout, "DSI impedance thread started.\n");
     ThreadParams *params = (ThreadParams *)lpParam;
@@ -110,11 +110,11 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       if(params->startFlag){
         DSI_Headset_StartImpedanceDriver( h ); CHECK
         // PrintImpedances( h, 0, "headings"); CHECK 
-        // Switch OnSample to PrintImpedances to print impedance values instead of raw signals
+        /* Switch OnSample to PrintImpedances to print impedance values instead of raw signals. */
         DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
         params->startFlag = 0;
       }
-      // uncomment the following lines to continuously print impedance check
+      /* Uncomment the following lines to continuously print impedance check. */
       // while (params->printFlag) {
       //     DSI_Headset_Receive( h, 0.1, 0 ); CHECK
       // }
@@ -179,7 +179,7 @@ int main( int argc, const char * argv[] )
   /* Custom struct for impedance flags */
   ThreadParams zFLag;
   zFLag.h = h; /* Valid DSI_Headset variable */
-  zFLag.printFlag = 0; //used to print impedance continuously
+  zFLag.printFlag = 0; /* Used to print impedance continuously */
   zFLag.startFlag = 0;
   zFLag.stopFlag = 0;
   zFLag.outlet = outlet; /* Valid LSL outlet */
@@ -205,10 +205,10 @@ int main( int argc, const char * argv[] )
   while( KeepRunning==1 ){
     
     /* 
-    * Read a line of input from stdin (the terminal)
-    * fgets reads up to MAX_COMMAND_LENGTH-1 characters or until a newline.
-    * It includes the newline character if it fits in the buffer. 
-    */
+     * Read a line of input from stdin (the terminal)
+     * fgets reads up to MAX_COMMAND_LENGTH-1 characters or until a newline.
+     * It includes the newline character if it fits in the buffer. 
+     */
     if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
         /* Handle potential error or EOF (End Of File) condition. */
         fprintf(stdout, "Error reading input or EOF reached.\n");
@@ -216,9 +216,9 @@ int main( int argc, const char * argv[] )
     }
 
     /* 
-    * Remove the trailing newline character if it exists
-    * fgets includes the newline, which can interfere with string comparisons.
-    */
+     * Remove the trailing newline character if it exists
+     * fgets includes the newline, which can interfere with string comparisons.
+     */
     command[strcspn(command, "\n")] = 0;
 
     if (command == NULL) {
@@ -227,12 +227,14 @@ int main( int argc, const char * argv[] )
     }
 
     else if (strcmp(command, "checkZOn") == 0) {
-        // zFLag.boolFlag = 1;   // uncomment to print impedance continuously
+        /* uncomment to print impedance continuously */
+        // zFLag.boolFlag = 1; 
         zFLag.stopFlag = 0;
         zFLag.startFlag = 1;
 
     }else if (strcmp(command, "checkZOff") == 0) {
-        // zFLag.boolFlag = 0;   // uncomment to print impedance continuously
+        /* Uncomment to print impedance continuously */
+        // zFLag.boolFlag = 0;   
         zFLag.stopFlag = 1;
         zFLag.startFlag = 0;
     }
@@ -335,26 +337,26 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
   h = DSI_Headset_New( NULL ); CHECK
 
   /*
-  * ...which allows us to configure the way we handle any debugging messages
-  * that occur during connection (see our definition of the `DSI_MessageCallback`
-  * function `Message()` above).
-  */
+   * ...which allows us to configure the way we handle any debugging messages
+   * that occur during connection (see our definition of the `DSI_MessageCallback`
+   * function `Message()` above).
+   */
   DSI_Headset_SetMessageCallback( h, Message ); CHECK
   DSI_Headset_SetVerbosity( h, verbosity ); CHECK
 
   /*
-  * Now we establish the serial port connection and initialize the headset.
-  * In this demo program, the string supplied in the --port command-line
-  * option is used as the serial port address (if this string is empty, the
-  * API will automatically look for an environment variable called
-  * DSISerialPort).
-  * */
+   * Now we establish the serial port connection and initialize the headset.
+   * In this demo program, the string supplied in the --port command-line
+   * option is used as the serial port address (if this string is empty, the
+   * API will automatically look for an environment variable called
+   * DSISerialPort).
+   */
   DSI_Headset_Connect( h, serialPort ); CHECK
 
   /*
-  * Sets up the montage according to strings supplied in the --montage and
-  * --reference command-line options, if any.
-  */
+   * Sets up the montage according to strings supplied in the --montage and
+   * --reference command-line options, if any.
+   */
   DSI_Headset_ChooseChannels( h, montage, reference, 1 ); CHECK
 
   /* Prints an overview of what is known about the headset. */
@@ -376,16 +378,16 @@ int Finish( DSI_Headset h )
   DSI_Headset_StopDataAcquisition( h ); CHECK
 
   /*
-  * This allows more than enough time to receive any samples that were
-  * sent before the stop command is carried out, along with the alarm
-  * signal that the headset sends out when it stops.
-  */
+   * This allows more than enough time to receive any samples that were
+   * sent before the stop command is carried out, along with the alarm
+   * signal that the headset sends out when it stops.
+   */
   DSI_Headset_Idle( h, 1.0 ); CHECK
 
   /*
-  * This is the only really necessary step. Disconnects from the serial
-  * port, frees memory, etc.
-  */
+   * This is the only really necessary step. Disconnects from the serial
+   * port, frees memory, etc.
+   */
   DSI_Headset_Delete( h ); CHECK
 
   return 0;
@@ -504,15 +506,15 @@ int GlobalHelp( int argc, const char * argv[] )
 
 
 /*
-* These two functions are carried over from the Wearable Sensing example code 
-* and are Copyright (c) 2014-2016 Wearable Sensing LLC.
-*
-* Helper function for figuring out command-line input flags like --port=COM4
-* or /port:COM4 (either syntax will work).  Returns NULL if the specified
-* option is absent. Returns a pointer to the argument value if the option
-* is present (the pointer will point to '\0' if the argument value is empty
-* or not supplied as part of the option string). 
-*/
+ * These two functions are carried over from the Wearable Sensing example code 
+ * and are Copyright (c) 2014-2016 Wearable Sensing LLC.
+ *
+ * Helper function for figuring out command-line input flags like --port=COM4
+ * or /port:COM4 (either syntax will work).  Returns NULL if the specified
+ * option is absent. Returns a pointer to the argument value if the option
+ * is present (the pointer will point to '\0' if the argument value is empty
+ * or not supplied as part of the option string). 
+ */
 const char * GetStringOpt( int argc, const char * argv[], const char * keyword1, const char * keyword2 )
 {
     int i, j;
