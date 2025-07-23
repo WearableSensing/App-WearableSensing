@@ -6,6 +6,7 @@
 
 
 ![alt text](images/image-5.png)
+
 Before you can start your LSL stream, make sure your headset is properly connected to your computer using bluetooh or usb. Once properly connected, go to ```Device Manager``` and locate the COM port the headset is connected to. 
 Wireless connection will be found in ```Bluetooth```, and the wired connection will be found in ```Ports (COM & LPT)```. On clicking either dropdown you will find a device name similar to ```Silicon Labs CP210x USB to UART Bridge (COM#)```.
 
