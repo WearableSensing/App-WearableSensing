@@ -1,37 +1,40 @@
 # Wearable Sensing LSL (dsi2lsl)
 
 ---
-## 🔧 How to Use the DSI2LSL GUI
+## 🔧 How to Use ```dsi2lslGUI```
 
 
 
 ![alt text](images/image-5.png)
-Before you can start your LSL stream, make sure your headset is properly connected to your computer using bluetooh or usb. Once properly connected, go to ```Device Manager``` and locate ```Ports (COM & LPT)```. On clicking the dropdown menu u should find a name similar to ![alt text](images/image-9.png).
+Before you can start your LSL stream, make sure your headset is properly connected to your computer using bluetooh or usb. Once properly connected, go to ```Device Manager``` and locate the COM port the headset is connected to. 
+Wireless connection will be found in ```Bluetooth```, and the wired connection will be found in ```Ports (COM & LPT)```. On clicking either dropdown you will find a device name similar to ```Silicon Labs CP210x USB to UART Bridge (COM#)```.
 
-Go back to DSI2LSL and enter ```COM``` followed by the ```#```. You are now ready to start receiving the DSI data.
+
+Go back to ```dsi2lslGUI``` and enter ```COM``` followed by the number in the dropdown. You are now ready to start receiving the DSI data.
 ![alt text](images/image-8.png)
 
 ```Start``` - Begins the active LSL stream.
 ```Stop``` - Stops the active LSL stream.
 ```Reset``` - Sends an analog reset to the amplifier.
 
-```Impedance``` - If checked, will stream impedance values when ```Start``` is clicked.
+```Impedance``` - If checked, Impedance driver will be on after you click ```Start```.
 
 
 
 ## LSL-TOOLS
 
-Wearable Sensing has created some tools that can work with LSL. You can find them at Wearable Sensing's [github](https://github.com/WearableSensing/lsl-tools).
+Wearable Sensing has created some tools that can work with LabStreamingLayer. You can find them at Wearable Sensing's [github](https://github.com/WearableSensing/lsl-tools).
 
 ### Recording Data from DSI2LSL
 
-1. Start DSI2LSL
-2. While DSI2LSL is running, run ```receive.py``` 
+1. Start ```dsi2lslGUI```
+2. While ```dsi2lslGUI``` is running, execute the ```receive.py``` script.
 
-This will create a .csv file with the data received from the headset.
->[!NOTE]
-There are program requirements to run Receive.py, they can be found in the README of lsl-tools
-```
+This will create a ```.csv``` file with the data received from the headset.
+> [!NOTE]
+> There are program requirements to run ```receive.py```, they can be found in the README of [```lsl-tools```](https://github.com/WearableSensing/lsl-tools).
+
+```sh
 Usage: 
        --output
           The path where data should be written to (default: '.').
@@ -44,16 +47,10 @@ Example:
         python receive.py --duration=5
 ```
 
-
-
-## Basic Usage
-
-Please visit the official Wearable Sensing [github](https://github.com/WearableSensing) to download the release for additional features.
-
 ## Build from Source Guide
 This documentation last updated July, 2025.
-
-This program will only work on Windows. 
+> [!IMPORTANT]
+> This program will only work on Windows. 
 
 This guide provides instructions for locally compiling and running the Wearable Sensing dsi2lsl plugin. Following these steps will allow you to set up the necessary environment and dependencies to build two executable files from the source code:
 
