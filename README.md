@@ -1,55 +1,6 @@
 # Wearable Sensing LSL (dsi2lsl)
 
 ---
-## 🔧 How to Use ```dsi2lslGUI```
-
-
-
-![alt text](images/image-5.png)
-
-Before you can start your LSL stream, make sure your headset is properly connected to your computer using bluetooh or usb. Once properly connected, go to ```Device Manager``` and locate the COM port the headset is connected to. 
-Wireless connection will be found in ```Bluetooth```, and the wired connection will be found in ```Ports (COM & LPT)```. On clicking either dropdown you will find a device name similar to ```Silicon Labs CP210x USB to UART Bridge (COM#)```.
-
-
-Go back to ```dsi2lslGUI``` and enter ```COM``` followed by the number in the dropdown. You are now ready to start receiving the DSI data.
-
-![alt text](images/image-8.png)
-
-```Start``` - Begins the active LSL stream.
-
-```Stop``` - Stops the active LSL stream.
-
-```Reset``` - Sends an analog reset to the amplifier.
-
-```Impedance``` - If checked, Impedance driver will be on after you click ```Start```.
-
-
-
-## LSL-TOOLS
-
-Wearable Sensing has created some tools that can work with LabStreamingLayer. You can find them at Wearable Sensing's [github](https://github.com/WearableSensing/lsl-tools).
-
-### Recording Data from DSI2LSL
-
-1. Start ```dsi2lslGUI```
-2. While ```dsi2lslGUI``` is running, execute the ```receive.py``` script.
-
-This will create a ```.csv``` file with the data received from the headset.
-> [!NOTE]
-> There are program requirements to run ```receive.py```, they can be found in the README of [```lsl-tools```](https://github.com/WearableSensing/lsl-tools).
-
-```sh
-Usage: 
-       --output
-          The path where data should be written to (default: '.').
-       --stream
-          The stream name configured in the LSL app (default: 'WS-default').
-       --duration
-          The duration in seconds for the data collection to run (default: 10).
-Example:
-        python receive.py --output='./thisFolder' --stream='aStreamName' --duration=2
-        python receive.py --duration=5
-```
 
 ## Build from Source Guide
 This documentation last updated July, 2025.
