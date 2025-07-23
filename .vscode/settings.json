@@ -12,6 +12,7 @@
         "iterator": "cpp",
         "memory": "cpp",
         "xmemory": "cpp",
+        "qtgui": "cpp"
     }
 
 }

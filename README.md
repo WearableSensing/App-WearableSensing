@@ -2,14 +2,10 @@
 
 ---
 
-## Basic Usage
-
-Please visit the official Wearable Sensing [github](https://github.com/WearableSensing) to download the release for additional features.
-
 ## Build from Source Guide
 This documentation last updated July, 2025.
-
-This program will only work on Windows. 
+> [!IMPORTANT]
+> This build guide has only been tested using Windows.
 
 This guide provides instructions for locally compiling and running the Wearable Sensing dsi2lsl plugin. Following these steps will allow you to set up the necessary environment and dependencies to build two executable files from the source code:
 
