@@ -110,7 +110,8 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       if(params->startFlag){
         DSI_Headset_StartImpedanceDriver( h ); CHECK
         // PrintImpedances( h, 0, "headings"); CHECK 
-        DSI_Headset_SetSampleCallback( h, PrintImpedances, params->outlet ); CHECK
+        // Switch OnSample to PrintImpedances to print impedance values instead of raw signals
+        DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
         params->startFlag = 0;
       }
       // uncomment the following lines to continuously print impedance check
