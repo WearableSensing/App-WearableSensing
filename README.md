@@ -7,6 +7,8 @@ This documentation last updated July, 2025.
 > [!IMPORTANT]
 > This build guide has only been tested using Windows.
 
+This program will only work on Windows. 
+
 This guide provides instructions for locally compiling and running the Wearable Sensing dsi2lsl plugin. Following these steps will allow you to set up the necessary environment and dependencies to build two executable files from the source code:
 
 - ```dsi2lsl.exe:``` A command-line application that runs in the terminal.
