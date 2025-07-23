@@ -16,7 +16,9 @@ Go back to ```dsi2lslGUI``` and enter ```COM``` followed by the number in the dr
 ![alt text](images/image-8.png)
 
 ```Start``` - Begins the active LSL stream.
+
 ```Stop``` - Stops the active LSL stream.
+
 ```Reset``` - Sends an analog reset to the amplifier.
 
 ```Impedance``` - If checked, Impedance driver will be on after you click ```Start```.
