@@ -22,7 +22,7 @@ set(CMAKE_AUTORCC ON)
 
 # Sets variables for the directories used
 # --------------------UPDATE base on your naming conventions, or updating version-------------------------------------------
-SET(DSI-API "${CMAKE_CURRENT_SOURCE_DIR}/DSI_API_v1.18.2_04102023")
+SET(DSI-API "${CMAKE_CURRENT_SOURCE_DIR}/dsi-api-v1.18.2")
 SET(LSL-CLI "${CMAKE_CURRENT_SOURCE_DIR}/CLI")
 SET(LSL-GUI "${CMAKE_CURRENT_SOURCE_DIR}/GUI")
 # --------------------------------------------------------------------------------------------------------------------------
