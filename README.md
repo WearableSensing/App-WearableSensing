@@ -156,14 +156,14 @@ Qt5Widgets.dll
 ```
 With this setup in place, your now ready to launch the ```dsi2lslGUI.exe```.
 
-## Alternative: Build Using bat
+## Alternative: Build using bat
 
 Open the ```build-mingw.bat``` and change the paths according to your file structure. 
 
 Run the following code in the terminal
 
 ```
-build-mingw.bat
+.\build-mingw.bat
 ```
 
 This will create a ```mingwbuild``` folder with the executable and dependencies. 
