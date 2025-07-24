@@ -1,7 +1,9 @@
 {
     "cmake.configureArgs": [
-        "-DLSL_DIR=C:/Users/Isaiah/Documents/liblsl-1.16.2-Win_amd64/lib/cmake/LSL",
-        "-DQt5_DIR=C:/Qt5/5.15.2/msvc2019_64/lib/cmake/Qt5"
+        "-DLSL_DIR=YOUR_PATH_TO_LSL_LIBRARY", // Specify the path to the LSL cmake directory
+        "-DQt5_DIR=YOUR_PATH_TO_QT5_LIBRARY", // Specify the path to the Qt5 cmake directory
+        "-D CMAKE_PREFIX_PATH=YOUR_PATH_TO_QT5_MINGW" // Specify the path to Qt5 mingw81_64 or mingw64
+
     ],
     "files.associations": {
         "mainwindow.h": "c",
