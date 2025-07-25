@@ -11,9 +11,9 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QtGui>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QCheckBox>
+#include <QProgressBar>
 
 
 namespace Ui {
