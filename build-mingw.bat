@@ -93,7 +93,7 @@ copy "YOUR_PATH_TO_LIBDSI.DLL" "%OUT%\" >nul
 :: Copy Qt platform plugins (REQUIRED for Qt GUI apps!)
 echo Copying Qt platform plugins...
 if not exist %OUT%\platforms mkdir %OUT%\platforms
-copy "C:\Qt5\5.15.2\mingw81_64\plugins\platforms\qwindows.dll" "%OUT%\platforms\" >nul
+copy "YOUR_PATH_TO_QT5_MINGW64_PLUGINS_PLATFORMS_QWINDOWS.dll" "%OUT%\platforms\" >nul
 
 echo.
 echo Build completed successfully!
