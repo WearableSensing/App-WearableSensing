@@ -279,7 +279,7 @@ int startAnalogReset(DSI_Headset h) {
     }
     /* Check initial analog reset mode */
     fprintf(stdout, "--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
-    
+
     DSI_Headset_StartAnalogReset(h); CHECK;
     return 0;
 }
@@ -403,6 +403,7 @@ int Finish( DSI_Headset h )
 
 void getRandomString(char *s, const int len)
 {
+  srand(time(NULL));
   int i = 0;
   static const char alphanum[] =     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   for (i=0; i < len; ++i){ s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];}
@@ -427,10 +428,14 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
 	
 	/* Note: an even better choice here may be the serial number of the device. */
   getRandomString(source_id, imax);
+  fprintf(stderr, "Source ID: %s\n", source_id);
 
   /* Declare a new streaminfo (name: WearableSensing, content type: EEG, number of channels, srate, float values, source id. */
   info = lsl_create_streaminfo((char*)streamName,"EEG",numberOfChannels,samplingRate,cft_float32,source_id);
 
+  fprintf(stderr, "Stream Name: %s\n", streamName);
+  fprintf(stderr, "Info: %s\n", info);
+  fprintf(stderr, "Source ID: %s\n", source_id);
   /* Add some meta-data fields to it (for more standard fields, see https://github.com/sccn/xdf/wiki/Meta-Data). */
   desc = lsl_get_desc(info);
   lsl_append_child_value(desc,"manufacturer","WearableSensing");
