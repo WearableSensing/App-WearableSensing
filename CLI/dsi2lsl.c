@@ -292,47 +292,50 @@ int startAnalogReset(DSI_Headset h) {
  * @return 0 on success, non-zero on error.
  */
 
-/* Handler called on every sample, immediately forwards to LSL */
-void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)
+void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
 {
-  static int sample_index_in_chunk = 0;
-  static unsigned int numberOfChannels = 0;
-  static double* chunk_timestamps = NULL; 
+    // Static variables to maintain state between calls
+    static float* chunk_buffer = NULL;
+    static int sample_index_in_chunk = 0;
+    static unsigned int numberOfChannels = 0;
 
+    // This block runs only on the very first call to initialize the buffer
+    if (chunk_buffer == NULL) {
+        numberOfChannels = DSI_Headset_GetNumberOfChannels(h);
+        if (numberOfChannels > 0) {
+            // Allocate a buffer large enough to hold the entire chunk
+            chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
+        }
+        
+        // If allocation fails, we cannot proceed. Print an error and exit gracefully.
+        if (chunk_buffer == NULL) {
+            fprintf(stderr, "Fatal Error: Could not allocate memory for the sample chunk buffer.\n");
+            return; // Or handle the error more gracefully (e.g., exit the program)
+        }
+    }
 
-  if (chunk_buffer == NULL) {
-      numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
-      if (numberOfChannels > 0) {
-          /* Allocate a buffer large enough to hold the entire chunk (9 samples) */
-          chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
-          chunk_timestamps = (double*)malloc(CHUNK_SIZE * sizeof(double));
-      }
-      if (chunk_buffer == NULL) { 
-          return; 
-      }
-  }
+    // Calculate a pointer to the correct position in our chunk_buffer for the current sample
+    float* current_sample_ptr = &chunk_buffer[sample_index_in_chunk * numberOfChannels];
 
-  // A temporary pointer to the location for the current sample in the chunk buffer
-  float* current_sample_ptr = &chunk_buffer[sample_index_in_chunk * numberOfChannels];
+    // Read the signal data for each channel directly into the buffer
+    for (unsigned int channelIndex = 0; channelIndex < numberOfChannels; channelIndex++) {
+        current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
+    }
 
-  // Read the signal data for each channel directly into the correct buffer position
-  for (unsigned int channelIndex = 0; channelIndex < numberOfChannels; channelIndex++) {
-      current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
-  }
+    // Increment our position in the chunk
+    sample_index_in_chunk++;
 
-  chunk_timestamps[sample_index_in_chunk] = packetOffsetTime;
-  /* Increment the sample counter */
-  sample_index_in_chunk++;
+    // If the chunk is full, push it to LSL and reset the counter
+    if (sample_index_in_chunk == CHUNK_SIZE) {
+        // Push the entire chunk of 9 samples.
+        // We provide the timestamp for the LAST sample in the chunk using lsl_local_clock().
+        // LSL will automatically calculate the timestamps for the previous 8 samples
+        // by back-dating from this timestamp using the stream's nominal sampling rate.
+        lsl_push_chunk_ft(outlet, chunk_buffer, (long)(CHUNK_SIZE * numberOfChannels), lsl_local_clock());
 
-  
-
-  /* When chunk is full, push the entire chunk of 9 samples. */
-  if (sample_index_in_chunk == CHUNK_SIZE) {
-      lsl_push_chunk_ftn(outlet, chunk_buffer, CHUNK_SIZE * numberOfChannels, chunk_timestamps);
-
-      /* Reset chunk counter */
-      sample_index_in_chunk = 0;
-  }
+        // Reset the counter to start filling the next chunk
+        sample_index_in_chunk = 0;
+    }
 }
 
 int Message( const char * msg, int debugLevel ){
