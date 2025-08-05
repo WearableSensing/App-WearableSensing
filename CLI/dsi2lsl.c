@@ -38,7 +38,7 @@ int        startAnalogReset( DSI_Headset h );
 int          CheckImpedance( DSI_Headset h ); 
 void        PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData );
 
-float *sample;
+static float* chunk_buffer = NULL;
 static volatile int KeepRunning = 1;
 static volatile int DSI_Thread_Paused = 0;
 void  QuitHandler(int a){ KeepRunning = 0; }
@@ -56,6 +56,7 @@ int CheckError( void ){
  * This value is set to 2 seconds, which is sufficient for most operations
  */
 #define BUFFER_SECONDS 2
+#define CHUNK_SIZE 9
 
 /* Custom Struct to handle impedance flags. */
 typedef struct {
@@ -294,14 +295,38 @@ int startAnalogReset(DSI_Headset h) {
 /* Handler called on every sample, immediately forwards to LSL */
 void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)
 {
-  unsigned int channelIndex;
-  unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
-  if (sample == NULL) 
-		sample = (float *)malloc( numberOfChannels * sizeof(float));
-  for(channelIndex=0; channelIndex < numberOfChannels; channelIndex++){
-    sample[channelIndex] = (float) DSI_Channel_GetSignal( DSI_Headset_GetChannelByIndex( h, channelIndex ) );
+  static int sample_index_in_chunk = 0;
+  static unsigned int numberOfChannels = 0;
+
+  if (chunk_buffer == NULL) {
+      numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
+      if (numberOfChannels > 0) {
+          /* Allocate a buffer large enough to hold the entire chunk (9 samples) */
+          chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
+      }
+      if (chunk_buffer == NULL) { 
+          return; 
+      }
   }
-  lsl_push_sample_f(outlet, sample);
+
+  // A temporary pointer to the location for the current sample in the chunk buffer
+  float* current_sample_ptr = &chunk_buffer[sample_index_in_chunk * numberOfChannels];
+
+  // Read the signal data for each channel directly into the correct buffer position
+  for (unsigned int channelIndex = 0; channelIndex < numberOfChannels; channelIndex++) {
+      current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
+  }
+
+  /* Increment the sample counter */
+  sample_index_in_chunk++;
+
+  /* When chunk is full, push the entire chunk of 9 samples. */
+  if (sample_index_in_chunk == CHUNK_SIZE) {
+      lsl_push_chunk_f(outlet, chunk_buffer, CHUNK_SIZE * numberOfChannels);
+
+      /* Reset chunk counter */
+      sample_index_in_chunk = 0;
+  }
 }
 
 int Message( const char * msg, int debugLevel ){
@@ -561,12 +586,36 @@ int GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const c
 
 void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * outlet )
 {
-  unsigned int channelIndex;
-  unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
-  if (sample == NULL) 
-		sample = (float *)malloc( numberOfChannels * sizeof(float));
-  for(channelIndex=0; channelIndex < numberOfChannels; channelIndex++){
-    sample[channelIndex] = (float) DSI_Source_GetImpedanceEEG( DSI_Headset_GetSourceByIndex( h, channelIndex ) );
+  static int sample_index_in_chunk = 0;
+  static unsigned int numberOfChannels = 0;
+
+  if (chunk_buffer == NULL) {
+      numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
+      if (numberOfChannels > 0) {
+          /* Allocate a buffer large enough to hold the entire chunk (9 samples) */
+          chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
+      }
+      if (chunk_buffer == NULL) { 
+          return; 
+      }
   }
-  lsl_push_sample_f(outlet, sample);
+
+  // A temporary pointer to the location for the current sample in the chunk buffer
+  float* current_sample_ptr = &chunk_buffer[sample_index_in_chunk * numberOfChannels];
+
+  // Read the signal data for each channel directly into the correct buffer position
+  for (unsigned int channelIndex = 0; channelIndex < numberOfChannels; channelIndex++) {
+      current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
+  }
+
+  /* Increment the sample counter */
+  sample_index_in_chunk++;
+
+  /* When chunk is full, push the entire chunk of 9 samples. */
+  if (sample_index_in_chunk == CHUNK_SIZE) {
+      lsl_push_chunk_f(outlet, chunk_buffer, CHUNK_SIZE * numberOfChannels);
+
+      /* Reset chunk counter */
+      sample_index_in_chunk = 0;
+  }
 }
