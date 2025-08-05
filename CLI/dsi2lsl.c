@@ -435,7 +435,6 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
 
   fprintf(stderr, "Stream Name: %s\n", streamName);
   fprintf(stderr, "Info: %s\n", info);
-  fprintf(stderr, "Source ID: %s\n", source_id);
   /* Add some meta-data fields to it (for more standard fields, see https://github.com/sccn/xdf/wiki/Meta-Data). */
   desc = lsl_get_desc(info);
   lsl_append_child_value(desc,"manufacturer","WearableSensing");
