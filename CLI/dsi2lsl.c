@@ -297,12 +297,15 @@ void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)
 {
   static int sample_index_in_chunk = 0;
   static unsigned int numberOfChannels = 0;
+  static double* chunk_timestamps = NULL; 
+
 
   if (chunk_buffer == NULL) {
       numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
       if (numberOfChannels > 0) {
           /* Allocate a buffer large enough to hold the entire chunk (9 samples) */
           chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
+          chunk_timestamps = (double*)malloc(CHUNK_SIZE * sizeof(double));
       }
       if (chunk_buffer == NULL) { 
           return; 
@@ -317,12 +320,15 @@ void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)
       current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
   }
 
+  chunk_timestamps[sample_index_in_chunk] = packetOffsetTime;
   /* Increment the sample counter */
   sample_index_in_chunk++;
 
+  
+
   /* When chunk is full, push the entire chunk of 9 samples. */
   if (sample_index_in_chunk == CHUNK_SIZE) {
-      lsl_push_chunk_f(outlet, chunk_buffer, CHUNK_SIZE * numberOfChannels);
+      lsl_push_chunk_ftn(outlet, chunk_buffer, CHUNK_SIZE * numberOfChannels, chunk_timestamps);
 
       /* Reset chunk counter */
       sample_index_in_chunk = 0;
