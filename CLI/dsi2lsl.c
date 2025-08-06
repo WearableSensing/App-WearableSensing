@@ -38,7 +38,7 @@ int        startAnalogReset( DSI_Headset h );
 int          CheckImpedance( DSI_Headset h ); 
 void        PrintImpedances( DSI_Headset h, double packetOffsetTime, void * userData );
 
-float *sample;
+static float* chunk_buffer = NULL;
 static volatile int KeepRunning = 1;
 static volatile int DSI_Thread_Paused = 0;
 void  QuitHandler(int a){ KeepRunning = 0; }
@@ -56,6 +56,12 @@ int CheckError( void ){
  * This value is set to 2 seconds, which is sufficient for most operations
  */
 #define BUFFER_SECONDS 2
+
+/* Increasing CHUNK_SIZE beyond 9 will cause lsl_timsetamp difference to increase.
+ * Decreasing it will cause more occurences of jitter. Though, lsl_timestamp
+ * does seems to slightly decrease. 
+ */
+#define CHUNK_SIZE 9
 
 /* Custom Struct to handle impedance flags. */
 typedef struct {
@@ -279,7 +285,7 @@ int startAnalogReset(DSI_Headset h) {
     }
     /* Check initial analog reset mode */
     fprintf(stdout, "--> Initial analog reset mode: %d\n", DSI_Headset_GetAnalogResetMode(h));
-    
+
     DSI_Headset_StartAnalogReset(h); CHECK;
     return 0;
 }
@@ -291,17 +297,48 @@ int startAnalogReset(DSI_Headset h) {
  * @return 0 on success, non-zero on error.
  */
 
-/* Handler called on every sample, immediately forwards to LSL */
-void OnSample( DSI_Headset h, double packetOffsetTime, void * outlet)
+void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
 {
-  unsigned int channelIndex;
-  unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
-  if (sample == NULL) 
-		sample = (float *)malloc( numberOfChannels * sizeof(float));
-  for(channelIndex=0; channelIndex < numberOfChannels; channelIndex++){
-    sample[channelIndex] = (float) DSI_Channel_GetSignal( DSI_Headset_GetChannelByIndex( h, channelIndex ) );
-  }
-  lsl_push_sample_f(outlet, sample);
+    // Static variables to maintain state between calls
+    static float* chunk_buffer = NULL;
+    static int sample_index_in_chunk = 0;
+    static unsigned int numberOfChannels = 0;
+
+    // This block runs only on the very first call to initialize the buffer
+    if (chunk_buffer == NULL) {
+        numberOfChannels = DSI_Headset_GetNumberOfChannels(h);
+        if (numberOfChannels > 0) {
+            // Allocate a buffer large enough to hold the entire chunk
+            chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
+        }
+        
+        // If allocation fails, we cannot proceed. Print an error and exit.
+        if (chunk_buffer == NULL) {
+            fprintf(stderr, "Fatal Error: Could not allocate memory for the sample chunk buffer.\n");
+            return; 
+        }
+    }
+
+    // Calculate a pointer to the correct position in our chunk_buffer for the current sample
+    float* current_sample_ptr = &chunk_buffer[sample_index_in_chunk * numberOfChannels];
+
+    // Read the signal data for each channel directly into the buffer
+    for (unsigned int channelIndex = 0; channelIndex < numberOfChannels; channelIndex++) {
+        current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
+    }
+
+    // Increment our position in the chunk
+    sample_index_in_chunk++;
+
+    // If the chunk is full, push it to LSL and reset the counter
+    if (sample_index_in_chunk == CHUNK_SIZE) {
+        // Push the entire chunk of 9 samples.
+        // Provides the timestamp for the LAST sample in the chunk using lsl_local_clock().
+        lsl_push_chunk_ft(outlet, chunk_buffer, (long)(CHUNK_SIZE * numberOfChannels), lsl_local_clock());
+
+        // Reset the counter to start filling the next chunk
+        sample_index_in_chunk = 0;
+    }
 }
 
 int Message( const char * msg, int debugLevel ){
@@ -403,6 +440,7 @@ int Finish( DSI_Headset h )
 
 void getRandomString(char *s, const int len)
 {
+  srand(time(NULL));
   int i = 0;
   static const char alphanum[] =     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   for (i=0; i < len; ++i){ s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];}
@@ -427,10 +465,13 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
 	
 	/* Note: an even better choice here may be the serial number of the device. */
   getRandomString(source_id, imax);
+  fprintf(stderr, "Source ID: %s\n", source_id);
 
   /* Declare a new streaminfo (name: WearableSensing, content type: EEG, number of channels, srate, float values, source id. */
   info = lsl_create_streaminfo((char*)streamName,"EEG",numberOfChannels,samplingRate,cft_float32,source_id);
 
+  fprintf(stderr, "Stream Name: %s\n", streamName);
+  fprintf(stderr, "Info: %s\n", info);
   /* Add some meta-data fields to it (for more standard fields, see https://github.com/sccn/xdf/wiki/Meta-Data). */
   desc = lsl_get_desc(info);
   lsl_append_child_value(desc,"manufacturer","WearableSensing");
@@ -557,12 +598,46 @@ int GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const c
 
 void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * outlet )
 {
-  unsigned int channelIndex;
-  unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
-  if (sample == NULL) 
-		sample = (float *)malloc( numberOfChannels * sizeof(float));
-  for(channelIndex=0; channelIndex < numberOfChannels; channelIndex++){
-    sample[channelIndex] = (float) DSI_Source_GetImpedanceEEG( DSI_Headset_GetSourceByIndex( h, channelIndex ) );
-  }
-  lsl_push_sample_f(outlet, sample);
+  
+    // Static variables to maintain state between calls
+    static float* chunk_buffer = NULL;
+    static int sample_index_in_chunk = 0;
+    static unsigned int numberOfChannels = 0;
+
+    // This block runs only on the very first call to initialize the buffer
+    if (chunk_buffer == NULL) {
+        numberOfChannels = DSI_Headset_GetNumberOfChannels(h);
+        if (numberOfChannels > 0) {
+            // Allocate a buffer large enough to hold the entire chunk
+            chunk_buffer = (float*)malloc(CHUNK_SIZE * numberOfChannels * sizeof(float));
+        }
+        
+        // If allocation fails, we cannot proceed. Print an error and exit gracefully.
+        if (chunk_buffer == NULL) {
+            fprintf(stderr, "Fatal Error: Could not allocate memory for the sample chunk buffer.\n");
+            return;
+        }
+    }
+
+    // Calculate a pointer to the correct position in our chunk_buffer for the current sample
+    float* current_sample_ptr = &chunk_buffer[sample_index_in_chunk * numberOfChannels];
+
+    // Read the signal data for each channel directly into the buffer
+    for (unsigned int channelIndex = 0; channelIndex < numberOfChannels; channelIndex++) {
+        current_sample_ptr[channelIndex] = (float) DSI_Source_GetImpedanceEEG( 
+          DSI_Headset_GetSourceByIndex( h, channelIndex ) );
+    }
+
+    // Increment our position in the chunk
+    sample_index_in_chunk++;
+
+    // If the chunk is full, push it to LSL and reset the counter
+    if (sample_index_in_chunk == CHUNK_SIZE) {
+        // Push the entire chunk of 9 samples.
+        // Provides the timestamp for the LAST sample in the chunk using lsl_local_clock().
+        lsl_push_chunk_ft(outlet, chunk_buffer, (long)(CHUNK_SIZE * numberOfChannels), lsl_local_clock());
+
+        // Reset the counter to start filling the next chunk
+        sample_index_in_chunk = 0;
+    }
 }
