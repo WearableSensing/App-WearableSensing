@@ -20,6 +20,7 @@
 #include "lsl_c.h"
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <windows.h>
@@ -440,7 +441,7 @@ int Finish( DSI_Headset h )
 
 void getRandomString(char *s, const int len)
 {
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
   int i = 0;
   static const char alphanum[] =     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   for (i=0; i < len; ++i){ s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];}
@@ -451,7 +452,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
 {
   unsigned int channelIndex;
   unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
-  int samplingRate = DSI_Headset_GetSamplingRate( h );
+  double samplingRate = DSI_Headset_GetSamplingRate( h );
 
 	/* Out stream declaration object */
   lsl_streaminfo info;
@@ -470,12 +471,15 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   /* Declare a new streaminfo (name: WearableSensing, content type: EEG, number of channels, srate, float values, source id. */
   info = lsl_create_streaminfo((char*)streamName,"EEG",numberOfChannels,samplingRate,cft_float32,source_id);
 
+  if(!info) {
+      fprintf(stderr, "Failed to create LSL streaminfo.\n");
+      return NULL;
+  }
   fprintf(stderr, "Stream Name: %s\n", streamName);
-  fprintf(stderr, "Info: %s\n", info);
   /* Add some meta-data fields to it (for more standard fields, see https://github.com/sccn/xdf/wiki/Meta-Data). */
   desc = lsl_get_desc(info);
   lsl_append_child_value(desc,"manufacturer","WearableSensing");
-	
+
 	/* Describe channel info */
   chns = lsl_append_child(desc,"channels");
   for( channelIndex=0; channelIndex < numberOfChannels ; channelIndex++)
@@ -483,11 +487,12 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
     chn = lsl_append_child(chns,"channel");
 
     long_label = (char*) DSI_Channel_GetString( DSI_Headset_GetChannelByIndex( h, channelIndex ) );
-		/* Cut off "negative" part of channel name (e.g., the ref chn) */
-    short_label = strtok(long_label, "-");
+    /* Cut off "negative" part of channel name (e.g., the ref chn) */
+    char *context = NULL;
+    short_label = strtok_s(long_label, "-", &context);
     if(short_label == NULL)
       short_label = long_label;
-		/* Cmit channel info */
+    /* Cmit channel info */
     lsl_append_child_value(chn,"label", short_label);
     lsl_append_child_value(chn,"unit","microvolts");
     lsl_append_child_value(chn,"type","EEG");
