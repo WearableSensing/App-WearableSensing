@@ -602,12 +602,12 @@ int GlobalHelp( int argc, const char * argv[] )
             "\n"
         , argv[ 0 ] );
         return 0;
-    }
+}
 
 
 /*
- * These two functions are carried over from the Wearable Sensing example code 
- * and are Copyright (c) 2014-2016 Wearable Sensing LLC.
+ * These functions are carried over from the Wearable Sensing example code 
+ * and are Copyright (c) 2014-2025 Wearable Sensing LLC.
  *
  * Helper function for figuring out command-line input flags like --port=COM4
  * or /port:COM4 (either syntax will work).  Returns NULL if the specified
@@ -651,6 +651,17 @@ int GetIntegerOpt( int argc, const char * argv[], const char * keyword1, const c
     return result;
 }
 
+/**
+ * PrintImpedances
+ * ---------------
+ * Callback function to collect impedance values from the DSI headset and push them to the LSL outlet in chunks.
+ *
+ * @param h                Valid DSI headset handle.
+ * @param packetOffsetTime Unused packet offset time.
+ * @param outlet           LSL outlet to push impedance data to.
+ *
+ * Buffers impedance values for each channel and pushes them to LSL when the buffer is full.
+ */
 void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * outlet )
 {
     (void)packetOffsetTime;

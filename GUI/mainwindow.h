@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QProgressBar>
+#include <QProcess>
 
 
 namespace Ui {
