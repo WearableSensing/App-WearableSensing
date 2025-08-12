@@ -2,12 +2,10 @@
 
 ---
 
-## Basic Usage
-
-Please visit the official Wearable Sensing [github](https://github.com/WearableSensing) to download the release for additional features.
-
 ## Build from Source Guide
 This documentation last updated July, 2025.
+> [!IMPORTANT]
+> This build guide has only been tested using Windows.
 
 This program will only work on Windows. 
 
@@ -157,3 +155,15 @@ Qt5Gui.dll
 Qt5Widgets.dll
 ```
 With this setup in place, your now ready to launch the ```dsi2lslGUI.exe```.
+
+## Alternative: Build using bat
+
+Open the ```build-mingw.bat``` and change the paths according to your file structure. 
+
+Run the following code in the terminal
+
+```
+.\build-mingw.bat
+```
+
+This will create a ```mingwbuild``` folder with the executable and dependencies. 

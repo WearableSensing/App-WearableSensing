@@ -1,7 +1,9 @@
 {
     "cmake.configureArgs": [
-        "-DLSL_DIR=YOUR_PATH_TO_LSL_LIBRARY",
-        "-DQt5_DIR=YOUR_PATH_TO_QT5_LIBRARY"
+        "-DLSL_DIR=YOUR_PATH_TO_LSL_LIBRARY", // Specify the path to the LSL cmake directory
+        "-DQt5_DIR=YOUR_PATH_TO_QT5_LIBRARY", // Specify the path to the Qt5 cmake directory
+        "-D CMAKE_PREFIX_PATH=YOUR_PATH_TO_QT5_MINGW" // Specify the path to Qt5 mingw81_64 or mingw64
+
     ],
     "files.associations": {
         "mainwindow.h": "c",
@@ -12,6 +14,7 @@
         "iterator": "cpp",
         "memory": "cpp",
         "xmemory": "cpp",
+        "qtgui": "cpp"
     }
 
 }
