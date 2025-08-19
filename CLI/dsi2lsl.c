@@ -58,8 +58,8 @@ int CheckError(void) {
 #define CHECK   if (CheckError() != 0) return -1;
 
 #define MAX_COMMAND_LENGTH 256
-#define BUFFER_SECONDS 2 // Sleep time for thread scheduling (seconds)
-
+#define BUFFER_MILLISECONDS 50 // Sleep time for thread scheduling (milliseconds)
+#define RECORDING_BUFFER_MS 2 // Sleep time for recording buffer (milliseconds)
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
@@ -105,7 +105,7 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
             }
         }
         /* Sleep for a tiny amount of time to prevent CPU overload. */
-        Sleep(BUFFER_SECONDS);
+        Sleep(RECORDING_BUFFER_MS);
     }
 
     fprintf(stdout, "DSI processing thread finished.\n");
@@ -132,10 +132,10 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
         DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
         params->startFlag = 0;
       }
-      /* Uncomment the following lines to continuously print impedance check. */
-      // while (params->printFlag) {
-      //     DSI_Headset_Receive( h, 0.1, 0 ); CHECK
-      // }
+      if(params->printFlag){
+        /* Print impedance continuously */
+        PrintImpedances( h, 0, NULL ); CHECK
+      }
       if(params->stopFlag){
         DSI_Headset_StopImpedanceDriver( h ); CHECK
         DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
@@ -219,7 +219,7 @@ int main(int argc, const char *argv[])
   }
   
   fprintf(stderr, "Wait...\n");
-  Sleep(BUFFER_SECONDS);
+  Sleep(BUFFER_MILLISECONDS);
   fprintf(stderr, "Setup Ready\n");
   /* Start streaming */
   fprintf(stdout, "Streaming...\n");
@@ -263,7 +263,7 @@ int main(int argc, const char *argv[])
         /* Reset impedance */
         startAnalogReset( h ); CHECK
     }
-    Sleep(BUFFER_SECONDS);
+    Sleep(BUFFER_MILLISECONDS);
   }
 
   /* Closing the threads */
@@ -363,6 +363,11 @@ static void FreeChunkBufferManager(ChunkBufferManager **manager_ptr) {
 
 static ChunkBufferManager *onSampleManager = NULL;
 
+// Timing synchronization variables
+static double initial_packet_time = 0.0;
+static double initial_lsl_time = 0.0;
+static int timing_initialized = 0;
+
 /**
  * OnSample
  * --------
@@ -370,14 +375,23 @@ static ChunkBufferManager *onSampleManager = NULL;
  * Buffers samples and pushes them to LSL in chunks.
  *
  * @param h: DSI headset handle
- * @param unused_packet_offset_time: Unused
+ * @param packet_offset_time: Device packet timing offset
  * @param outlet: LSL outlet
  */
-void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
+void OnSample(DSI_Headset h, double packet_offset_time, void *outlet)
 {
-  (void)unused_packet_offset_time;
+  double lsl_time_now = lsl_local_clock();
   ChunkBufferManager *manager = GetChunkBufferManager(h, &onSampleManager);
   if (!manager || !manager->buffer) return;
+
+  // Initialize timing baseline on first packet
+  if (!timing_initialized) {
+    initial_packet_time = packet_offset_time;
+    initial_lsl_time = lsl_time_now;
+    timing_initialized = 1;
+    fprintf(stderr, "Timing baseline established: packet=%.6f, lsl=%.6f\n", 
+            initial_packet_time, initial_lsl_time);
+  }
 
   // Fill buffer with current sample data
   float* current_sample_ptr = &manager->buffer[manager->sample_index_in_chunk * manager->numberOfChannels];
@@ -389,7 +403,18 @@ void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
 
   // Push chunk to LSL when buffer is full
   if (manager->sample_index_in_chunk == CHUNK_SIZE) {
-    lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), lsl_local_clock());
+    // Calculate corrected timestamp using baseline offset
+    double packet_elapsed = packet_offset_time - initial_packet_time;
+    double lsl_elapsed = lsl_time_now - initial_lsl_time;
+    double offset = lsl_elapsed - packet_elapsed;
+    fprintf(stderr, "Chunk timestamp: packet_elapsed=%.6f, lsl_elapsed=%.6f, offset=%.6f\n", 
+            packet_elapsed, lsl_elapsed, offset);
+    // Estimate the device time for this packet, then correct to LSL time
+    double corrected_time = lsl_time_now - offset;
+
+    fprintf(stderr, "corrected_time=%.6f\n original_time=%.6f\n", corrected_time, lsl_time_now);
+
+    lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), corrected_time);
     manager->sample_index_in_chunk = 0;
   }
 }
@@ -477,7 +502,7 @@ int Finish( DSI_Headset h )
    * sent before the stop command is carried out, along with the alarm
    * signal that the headset sends out when it stops.
    */
-  DSI_Headset_Idle( h, BUFFER_SECONDS ); CHECK
+  DSI_Headset_Idle( h, BUFFER_MILLISECONDS ); CHECK
 
   /*
    * This is the only really necessary step. Disconnects from the serial
