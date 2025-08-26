@@ -159,7 +159,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
  */
 int main(int argc, const char *argv[])
 {
-  srand((unsigned int)time(NULL)); // Seed RNG
+  srand((unsigned int)time(NULL)); // Seed RNG once at program start
   const char *dllname = NULL;
   char command[MAX_COMMAND_LENGTH];
   HANDLE sThread, iThread;
@@ -198,15 +198,15 @@ int main(int argc, const char *argv[])
   DSI_Headset_StartDataAcquisition( h ); CHECK
 
   /* Custom struct for impedance flags */
-  ThreadParams zFLag;
-  zFLag.h = h; /* Valid DSI_Headset variable */
-  zFLag.printFlag = 0; /* Used to print impedance continuously */
-  zFLag.startFlag = 0;
-  zFLag.stopFlag = 0;
-  zFLag.outlet = outlet; /* Valid LSL outlet */
+  ThreadParams zFlag;
+  zFlag.h = h; /* Valid DSI_Headset variable */
+  zFlag.printFlag = 0; /* Used to print impedance continuously */
+  zFlag.startFlag = 0;
+  zFlag.stopFlag = 0;
+  zFlag.outlet = outlet; /* Valid LSL outlet */
 
   /* Create the impedance thread */
-  iThread = CreateThread(NULL, 0, ImpedanceThread, &zFLag, 0, NULL);
+  iThread = CreateThread(NULL, 0, ImpedanceThread, &zFlag, 0, NULL);
   if (iThread == NULL) {
       fprintf(stderr, "Error creating DSI impedance thread.\n");
       return Finish(h);
@@ -249,15 +249,15 @@ int main(int argc, const char *argv[])
 
     else if (strcmp(command, "checkZOn") == 0) {
         /* uncomment to print impedance continuously */
-        // zFLag.printFlag = 1; 
-        zFLag.stopFlag = 0;
-        zFLag.startFlag = 1;
+        // zFlag.printFlag = 1; 
+        zFlag.stopFlag = 0;
+        zFlag.startFlag = 1;
 
     }else if (strcmp(command, "checkZOff") == 0) {
         /* Uncomment to print impedance continuously */
-        // zFLag.printFlag = 0;   
-        zFLag.stopFlag = 1;
-        zFLag.startFlag = 0;
+        // zFlag.printFlag = 0;   
+        zFlag.stopFlag = 1;
+        zFlag.startFlag = 0;
     }
     else if (strcmp(command, "resetZ") == 0) {
         /* Reset impedance */
@@ -468,15 +468,27 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
    */
   DSI_Headset_Connect( h, serialPort ); CHECK
 
+  // I want the montage
+  if (!montage) montage = "";
+  char *full_montage = (char *)malloc(strlen(montage) + 16);
+  if (full_montage == NULL) {
+    fprintf(stderr, "Error: Could not allocate memory for montage string.\n");
+    if (headsetOut) *headsetOut = h;
+    return -1;
+  }
+  sprintf_s(full_montage, strlen(montage) + 16, "SND,RCV,%s", montage);
+
   /*
    * Sets up the montage according to strings supplied in the --montage and
    * --reference command-line options, if any.
    */
-  DSI_Headset_ChooseChannels( h, montage, reference, 1 ); CHECK
+  DSI_Headset_ChooseChannels( h, full_montage, reference, 1 ); CHECK
 
   /* Prints an overview of what is known about the headset. */
   fprintf( stderr, "%s\n", DSI_Headset_GetInfoString( h ) ); CHECK
 
+  /* Free the montage buffer to prevent memory leak */
+  free(full_montage);
 
   if( headsetOut ) *headsetOut = h;
   if( helpOut ) *helpOut = help;
@@ -540,8 +552,8 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   char *long_label;
   char *short_label;
   char *reference;
-	
-	/* Note: an even better choice here may be the serial number of the device. */
+  getRandomString(source_id, IMAX);
+  fprintf(stdout, "Source ID: %s\n", source_id);
   getRandomString(source_id, IMAX);
   fprintf(stderr, "Source ID: %s\n", source_id);
 
@@ -572,7 +584,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
     short_label = strtok_s(label_buffer, "-", &context);
     if(short_label == NULL)
       short_label = label_buffer;
-    /* Cmit channel info */
+    /* Commit channel info */
     lsl_append_child_value(chn,"label", short_label);
     lsl_append_child_value(chn,"unit","microvolts");
     lsl_append_child_value(chn,"type","EEG");
