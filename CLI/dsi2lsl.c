@@ -159,6 +159,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
  */
 int main(int argc, const char *argv[])
 {
+  fprintf(stderr, "DSI to LSL streamer starting...\n");
   srand((unsigned int)time(NULL)); // Seed RNG once at program start
   const char *dllname = NULL;
   char command[MAX_COMMAND_LENGTH];
@@ -187,14 +188,13 @@ int main(int argc, const char *argv[])
   // Initialize LSL outlet
   const char *streamName = GetStringOpt(argc, argv, "lsl-stream-name", "m");
   if (!streamName) streamName = "WS-default";
-  fprintf(stdout, "Initializing %s outlet\n", streamName);
   lsl_outlet outlet = InitLSL(h, streamName); CHECK;
 
   /* Set the sample callback (forward every data sample received to LSL) */
   DSI_Headset_SetSampleCallback( h, OnSample, outlet ); CHECK
 
   /* Start data acquisition */
-  fprintf(stdout, "Starting data acquisition\n");
+  fprintf(stderr, "Starting data acquisition...\n");
   DSI_Headset_StartDataAcquisition( h ); CHECK
 
   /* Custom struct for impedance flags */
@@ -218,11 +218,8 @@ int main(int argc, const char *argv[])
       return Finish(h);
   }
   
-  fprintf(stderr, "Wait...\n");
   Sleep(BUFFER_MILLISECONDS);
-  fprintf(stderr, "Setup Ready\n");
-  /* Start streaming */
-  fprintf(stdout, "Streaming...\n");
+  fprintf(stderr, "Setup Complete! DSI Device Ready to Stream.\n");
   while( KeepRunning==1 ){
     
     /* 
@@ -232,7 +229,7 @@ int main(int argc, const char *argv[])
      */
     if (fgets(command, MAX_COMMAND_LENGTH, stdin) == NULL) {
         /* Handle potential error or EOF (End Of File) condition. */
-        fprintf(stdout, "Error reading input or EOF reached.\n");
+        fprintf(stderr, "Error reading input or EOF reached.\n");
         break; /* Exit the loop on error */
     }
 
@@ -282,7 +279,7 @@ int main(int argc, const char *argv[])
   
 
   /* Gracefully exit the program */
-  fprintf(stdout, "\n%s will exit now...\n", argv[ 0 ]);
+  fprintf(stderr, "\n%s will exit now...\n", argv[ 0 ]);
   lsl_destroy_outlet(outlet);
   return Finish( h );
 }
@@ -407,12 +404,8 @@ void OnSample(DSI_Headset h, double packet_offset_time, void *outlet)
     double packet_elapsed = packet_offset_time - initial_packet_time;
     double lsl_elapsed = lsl_time_now - initial_lsl_time;
     double offset = lsl_elapsed - packet_elapsed;
-    fprintf(stderr, "Chunk timestamp: packet_elapsed=%.6f, lsl_elapsed=%.6f, offset=%.6f\n", 
-            packet_elapsed, lsl_elapsed, offset);
     // Estimate the device time for this packet, then correct to LSL time
     double corrected_time = lsl_time_now - offset;
-
-    fprintf(stderr, "corrected_time=%.6f\n original_time=%.6f\n", corrected_time, lsl_time_now);
 
     lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), corrected_time);
     manager->sample_index_in_chunk = 0;
@@ -468,8 +461,14 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
    */
   DSI_Headset_Connect( h, serialPort ); CHECK
 
-  // I want the montage
-  if (!montage) montage = "";
+  /* 
+   * Construct the montage with SND, RCV, and the specified montage
+   * to align timestamps.
+   * 
+   * SND=Hardware packet stamp 
+   * RCV=Software packet stamp
+   */
+  if (!montage) montage = DSI_Headset_GetMontageString(h);
   char *full_montage = (char *)malloc(strlen(montage) + 16);
   if (full_montage == NULL) {
     fprintf(stderr, "Error: Could not allocate memory for montage string.\n");
@@ -531,10 +530,10 @@ void getRandomString(char *s, const int len)
   static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)rand();
   srand(seed); // Reseed for more randomness per call
-  for (i = 0; i < len; ++i) {
+  for (i = 0; i < len - 1; ++i) {
     s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
   }
-  s[len] = 0;
+  s[len - 1] = '\0';
 }
 
 lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
@@ -554,8 +553,6 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   char *reference;
   getRandomString(source_id, IMAX);
   fprintf(stdout, "Source ID: %s\n", source_id);
-  getRandomString(source_id, IMAX);
-  fprintf(stderr, "Source ID: %s\n", source_id);
 
   /* Declare a new streaminfo (name: WearableSensing, content type: EEG, number of channels, srate, float values, source id. */
   info = lsl_create_streaminfo((char*)streamName,"EEG",numberOfChannels,samplingRate,cft_float32,source_id);

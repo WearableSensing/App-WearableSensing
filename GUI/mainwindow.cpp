@@ -98,13 +98,6 @@ void MainWindow::onZCheckBoxToggled(bool checked){
 }
 void MainWindow::handleZCheckBoxToggled(){
     QByteArray command;
-        if(this->zCheckState){
-            command = "checkZOn\n";
-            this->ui->console->append("\n---------- Impedance Driver On -----------\n");
-        }else{
-            command = "checkZOff\n";
-            this->ui->console->append("\n---------- Impedance Driver Off ----------\n");
-        }
         // Write the command to the process's standard input
         this->streamer->write(command);
 }
