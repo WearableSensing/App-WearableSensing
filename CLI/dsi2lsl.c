@@ -381,15 +381,6 @@ void OnSample(DSI_Headset h, double packet_offset_time, void *outlet)
   ChunkBufferManager *manager = GetChunkBufferManager(h, &onSampleManager);
   if (!manager || !manager->buffer) return;
 
-  // Initialize timing baseline on first packet
-  if (!timing_initialized) {
-    initial_packet_time = packet_offset_time;
-    initial_lsl_time = lsl_time_now;
-    timing_initialized = 1;
-    fprintf(stderr, "Timing baseline established: packet=%.6f, lsl=%.6f\n", 
-            initial_packet_time, initial_lsl_time);
-  }
-
   // Fill buffer with current sample data
   float* current_sample_ptr = &manager->buffer[manager->sample_index_in_chunk * manager->numberOfChannels];
   for (unsigned int channelIndex = 0; channelIndex < manager->numberOfChannels; channelIndex++) {
@@ -400,14 +391,7 @@ void OnSample(DSI_Headset h, double packet_offset_time, void *outlet)
 
   // Push chunk to LSL when buffer is full
   if (manager->sample_index_in_chunk == CHUNK_SIZE) {
-    // Calculate corrected timestamp using baseline offset
-    double packet_elapsed = packet_offset_time - initial_packet_time;
-    double lsl_elapsed = lsl_time_now - initial_lsl_time;
-    double offset = lsl_elapsed - packet_elapsed;
-    // Estimate the device time for this packet, then correct to LSL time
-    double corrected_time = lsl_time_now - offset;
-
-    lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), corrected_time);
+    lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), lsl_time_now);
     manager->sample_index_in_chunk = 0;
   }
 }
