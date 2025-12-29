@@ -137,7 +137,7 @@ Qt5\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll
 
 (```lsl.dll```) will be located in the LSL Library folder.
 ```
-DSI_API_v1.18.2_04102023\libDSI.dll
+DSI_API_v1.20.3_06202025\libDSI.dll
 liblsl-1.16.2-Win_amd64\bin\lsl.dll
 ```
 Copy and paste the dependency files from their respective downloaded folders to the ```Release``` folder. 

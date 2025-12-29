@@ -24,8 +24,8 @@ set PATH=%QT_BIN%;%PATH%
 :: Build dsi2lsl (console app)
 echo Building dsi2lsl...
 gcc CLI\dsi2lsl.c ^
-    DSI_API_v1.18.2_04102023\DSI_API_Loader.c ^
-    -I DSI_API_v1.18.2_04102023 ^
+    DSI_API_v1.20.3_06202025\DSI_API_Loader.c ^
+    -I DSI_API_v1.20.3_06202025 ^
     -I %LSL_INC% ^
     -L %LSL_LIB% -llsl ^
     -o %OUT%\dsi2lsl.exe
