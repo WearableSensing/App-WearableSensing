@@ -100,10 +100,10 @@ void MainWindow::handleZCheckBoxToggled(){
     QByteArray command;
         if(this->zCheckState){
             command = "checkZOn\n";
-            this->ui->console->append("\n---------- Impedance Driver On -----------\n");
+            this->ui->console->append("\n---------- Impedance On -----------\n");
         }else{
             command = "checkZOff\n";
-            this->ui->console->append("\n---------- Impedance Driver Off ----------\n");
+            this->ui->console->append("\n---------- Impedance Off ----------\n");
         }
         // Write the command to the process's standard input
         this->streamer->write(command);
@@ -123,7 +123,7 @@ void MainWindow::onResetZButtonClicked(){
 
         /* Write the command to the process's standard input. */
         this->streamer->write(command);
-        this->ui->console->append("---------- Reset ----------\n");
+        this->ui->console->append("\n---------- Reset ----------\n");
 
     } else {
         this->ui->console->append("Streamer is not running. Cannot send command.");

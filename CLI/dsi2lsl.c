@@ -6,11 +6,12 @@
  * This program acquires data from a DSI headset and streams it over LSL for real-time
  * data acquisition and analysis. It uses Windows threads for parallel processing:
  *   - DSI headset thread: continuously calls DSI_Headset_Idle to process incoming data.
- *   - Impedance thread: checks for impedance activity and prints results.
+ *   - Impedance thread: controls impedance measurement driver via runtime commands.
  *
  * Usage:
  *   - Run the executable and specify options via command line (see GlobalHelp).
  *   - Data is streamed to LSL and can be received by compatible clients.
+ *   - Runtime commands: checkZOn, checkZOff, resetZ
  *
  * For support or feature requests, create a GitHub Issue or contact support@wearablesensing.com.
  */
@@ -58,7 +59,10 @@ int CheckError(void) {
 #define CHECK   if (CheckError() != 0) return -1;
 
 #define MAX_COMMAND_LENGTH 256
-#define BUFFER_SECONDS 2 // Sleep time for thread scheduling (seconds)
+#define BUFFER_MILLISECONDS 1 // Sleep time for thread scheduling (milliseconds)
+#define THREAD_INIT_WAIT_MS 500 // Wait time for thread initialization (milliseconds)
+#define SHUTDOWN_IDLE_TIMEOUT 2.0 // Timeout for final packet reception during shutdown (seconds)
+#define DEFAULT_ACCEL_RATE 30 // Default accelerometer sampling rate in Hz
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -98,14 +102,17 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
     while (KeepRunning == 1) {
         /* Only call Idle if the main thread hasn't paused us. */
         if (!DSI_Thread_Paused) {
+            /* Process data as quickly as possible with zero timeout */
             DSI_Headset_Idle(h, 0.0);
             if (CheckError() != 0) {
                 fprintf(stderr, "Error in DSI processing thread. Exiting.\n");
                 KeepRunning = 0; /* Signal main thread to exit. */
             }
         }
-        /* Sleep for a tiny amount of time to prevent CPU overload. */
-        Sleep(BUFFER_SECONDS);
+        else {
+            /* If paused, sleep to avoid busy-waiting */
+            Sleep(BUFFER_MILLISECONDS);
+        }
     }
 
     fprintf(stdout, "DSI processing thread finished.\n");
@@ -143,7 +150,7 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       }
       
       if (CheckError() != 0) {
-          fprintf(stderr, "Error in DSI processing thread. Exiting.\n");
+          fprintf(stderr, "Error in impedance thread. Exiting.\n");
           KeepRunning = 0; /* Signal main thread to exit. */
       }
     }
@@ -215,11 +222,17 @@ int main(int argc, const char *argv[])
   sThread = CreateThread(NULL, 0, DSI_Processing_Thread, h, 0, NULL);
   if (sThread == NULL) {
       fprintf(stderr, "Error creating DSI processing thread.\n");
+      /* Close the impedance thread handle to prevent leak */
+      if (iThread != NULL) {
+          KeepRunning = 0;
+          WaitForSingleObject(iThread, 1000);
+          CloseHandle(iThread);
+      }
       return Finish(h);
   }
   
   fprintf(stderr, "Wait...\n");
-  Sleep(BUFFER_SECONDS);
+  Sleep(THREAD_INIT_WAIT_MS); /* Wait for threads to initialize properly */
   fprintf(stderr, "Setup Ready\n");
   /* Start streaming */
   fprintf(stdout, "Streaming...\n");
@@ -248,14 +261,12 @@ int main(int argc, const char *argv[])
     }
 
     else if (strcmp(command, "checkZOn") == 0) {
-        /* uncomment to print impedance continuously */
-        // zFLag.printFlag = 1; 
+        /* Start impedance driver */
         zFLag.stopFlag = 0;
         zFLag.startFlag = 1;
 
     }else if (strcmp(command, "checkZOff") == 0) {
-        /* Uncomment to print impedance continuously */
-        // zFLag.printFlag = 0;   
+        /* Stop impedance driver */
         zFLag.stopFlag = 1;
         zFLag.startFlag = 0;
     }
@@ -263,7 +274,6 @@ int main(int argc, const char *argv[])
         /* Reset impedance */
         startAnalogReset( h ); CHECK
     }
-    Sleep(BUFFER_SECONDS);
   }
 
   /* Closing the threads */
@@ -304,13 +314,6 @@ int startAnalogReset(DSI_Headset h) {
     DSI_Headset_StartAnalogReset(h); CHECK
     return 0;
 }
-
-/**
- * Starts checking impedance and format it ready for print
- *
- * @param h - Valid DSI headset handle
- * @return 0 on success, non-zero on error.
- */
 
 /**
  * Callback function invoked for each sample received from the DSI headset.
@@ -449,6 +452,57 @@ int StartUp( int argc, const char * argv[], DSI_Headset * headsetOut, int * help
    */
   DSI_Headset_ChooseChannels( h, montage, reference, 1 ); CHECK
 
+  /*
+   * Check accelerometer feature availability and configure if enabled.
+   * The info string contains FeatureAvailability with "Accelerometer":1 (double quotes)
+   * and AccelerometerRate with 'AccelerometerRate': 30 (single quotes).
+   */
+  const char *infoString = DSI_Headset_GetInfoString(h);
+  if (infoString) {
+    /* Look for "Accelerometer" in FeatureAvailability (uses double quotes in JSON object) */
+    const char *accelField = strstr(infoString, "\"Accelerometer\"");
+    if (accelField) {
+      /* Move past the field name to find the value after the colon */
+      accelField = strchr(accelField, ':');
+      if (accelField) {
+        accelField++; /* Move past the colon */
+        /* Skip whitespace */
+        while (*accelField == ' ' || *accelField == '\t') accelField++;
+        /* Check if value is 1 (enabled) */
+        if (*accelField == '1') {
+          /* Check current accelerometer rate from info string (uses single quotes) */
+          const char *rateField = strstr(infoString, "'AccelerometerRate'");
+          int currentRate = 0;
+          if (rateField) {
+            rateField = strchr(rateField, ':');
+            if (rateField) {
+              rateField++; /* Move past the colon */
+              /* Skip whitespace */
+              while (*rateField == ' ' || *rateField == '\t') rateField++;
+              {
+                char *endptr = NULL;
+                long parsedRate = strtol(rateField, &endptr, 10);
+                if (endptr != rateField) {
+                  currentRate = (int)parsedRate;
+                } else {
+                  /* Parsing failed; keep currentRate as 0 to trigger default behavior */
+                  currentRate = 0;
+                }
+              }
+            }
+          }
+          
+          if (currentRate == 0) {
+            fprintf(stderr, "Accelerometer is enabled but rate is 0. Setting rate to %d Hz\n", DEFAULT_ACCEL_RATE);
+            DSI_Headset_SetAccelerometerRate(h, DEFAULT_ACCEL_RATE); CHECK
+          } else {
+            fprintf(stderr, "Accelerometer is already enabled at %d Hz\n", currentRate);
+          }
+        }
+      }
+    }
+  }
+
   /* Prints an overview of what is known about the headset. */
   fprintf( stderr, "%s\n", DSI_Headset_GetInfoString( h ) ); CHECK
 
@@ -469,7 +523,7 @@ int Finish( DSI_Headset h )
   FreeChunkBufferManager(&onSampleManager);
   FreeChunkBufferManager(&impedanceManager);
 
-  /* This send a command to the headset to tell it to stop sending samples. */
+  /* This sends a command to the headset to stop sending samples. */
   DSI_Headset_StopDataAcquisition( h ); CHECK
 
   /*
@@ -477,7 +531,7 @@ int Finish( DSI_Headset h )
    * sent before the stop command is carried out, along with the alarm
    * signal that the headset sends out when it stops.
    */
-  DSI_Headset_Idle( h, BUFFER_SECONDS ); CHECK
+  DSI_Headset_Idle( h, SHUTDOWN_IDLE_TIMEOUT ); CHECK
 
   /*
    * This is the only really necessary step. Disconnects from the serial
@@ -506,7 +560,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   unsigned int numberOfChannels = DSI_Headset_GetNumberOfChannels( h );
   double samplingRate = DSI_Headset_GetSamplingRate( h );
 
-	/* Out stream declaration object */
+	/* Output stream declaration object */
   lsl_streaminfo info;
 	/* Some xml element pointers */
   lsl_xml_ptr desc, chn, chns, ref; 
@@ -547,7 +601,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
     short_label = strtok_s(label_buffer, "-", &context);
     if(short_label == NULL)
       short_label = label_buffer;
-    /* Cmit channel info */
+    /* Commit channel info to LSL stream */
     lsl_append_child_value(chn,"label", short_label);
     lsl_append_child_value(chn,"unit","microvolts");
     lsl_append_child_value(chn,"type","EEG");
@@ -560,7 +614,12 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   fprintf(stdout, "REF: %s\n", reference);
 
   /* Make a new outlet (chunking: default, buffering: 360 seconds). */
-  return lsl_create_outlet(info, 0, 360);
+  lsl_outlet outlet = lsl_create_outlet(info, 0, 360);
+  
+  /* Free streaminfo as it's no longer needed after creating the outlet */
+  lsl_destroy_streaminfo(info);
+  
+  return outlet;
 }
 
 
