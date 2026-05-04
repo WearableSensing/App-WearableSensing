@@ -17,7 +17,7 @@
  */
 
 #include "DSI.h"
-#include "lsl_c.h"
+#include <lsl_c.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -323,11 +323,24 @@ int startAnalogReset(DSI_Headset h) {
  * @param unused_packet_offset_time - Unused packet offset time
  * @param outlet - LSL outlet to push data to
  */
-/* Helper struct for chunk buffer management */
+/* Helper struct for chunk buffer management.
+ *
+ * Adaptive-backfill timestamping (per-chunk):
+ *   When a chunk of CHUNK_SIZE samples fills, we read T_now = lsl_local_clock()
+ *   and lay the samples out evenly between the previous chunk's last timestamp
+ *   (prev_last_ts) and T_now. This eliminates the overlap/negative-delta bug
+ *   that fixed-cadence backfill (lsl_push_chunk_ft with a single timestamp)
+ *   produces when consecutive Bluetooth packets arrive closer together than
+ *   CHUNK_SIZE / sample_rate seconds.
+ */
 typedef struct {
     float* buffer;
+    double* timestamps;        /* Per-sample LSL timestamps for the current chunk */
     int sample_index_in_chunk;
     unsigned int numberOfChannels;
+    double sample_rate;        /* Cached nominal sample rate, used for first-chunk seed and clock-jump fallback */
+    double prev_last_ts;       /* LSL timestamp assigned to the last sample of the previous chunk */
+    int has_prev_ts;           /* 0 until the first chunk has been pushed */
 } ChunkBufferManager;
 
 /* Helper function to initialize or get chunk buffer */
@@ -340,16 +353,22 @@ static ChunkBufferManager* GetChunkBufferManager(DSI_Headset h, ChunkBufferManag
         }
         (*manager_ptr)->numberOfChannels = DSI_Headset_GetNumberOfChannels(h);
         (*manager_ptr)->sample_index_in_chunk = 0;
+        (*manager_ptr)->sample_rate = DSI_Headset_GetSamplingRate(h);
+        (*manager_ptr)->prev_last_ts = 0.0;
+        (*manager_ptr)->has_prev_ts = 0;
+        (*manager_ptr)->buffer = NULL;
+        (*manager_ptr)->timestamps = NULL;
         if ((*manager_ptr)->numberOfChannels > 0) {
             (*manager_ptr)->buffer = (float*)malloc(CHUNK_SIZE * (*manager_ptr)->numberOfChannels * sizeof(float));
-            if ((*manager_ptr)->buffer == NULL) {
-                fprintf(stderr, "Fatal Error: Could not allocate memory for chunk buffer.\n");
+            (*manager_ptr)->timestamps = (double*)malloc(CHUNK_SIZE * sizeof(double));
+            if ((*manager_ptr)->buffer == NULL || (*manager_ptr)->timestamps == NULL) {
+                fprintf(stderr, "Fatal Error: Could not allocate memory for chunk buffer or timestamps.\n");
+                if ((*manager_ptr)->buffer) free((*manager_ptr)->buffer);
+                if ((*manager_ptr)->timestamps) free((*manager_ptr)->timestamps);
                 free(*manager_ptr);
                 *manager_ptr = NULL;
                 return NULL;
             }
-        } else {
-            (*manager_ptr)->buffer = NULL;
         }
     }
     return *manager_ptr;
@@ -359,6 +378,7 @@ static ChunkBufferManager* GetChunkBufferManager(DSI_Headset h, ChunkBufferManag
 static void FreeChunkBufferManager(ChunkBufferManager **manager_ptr) {
     if (*manager_ptr) {
         if ((*manager_ptr)->buffer) free((*manager_ptr)->buffer);
+        if ((*manager_ptr)->timestamps) free((*manager_ptr)->timestamps);
         free(*manager_ptr);
         *manager_ptr = NULL;
     }
@@ -380,7 +400,7 @@ void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
 {
   (void)unused_packet_offset_time;
   ChunkBufferManager *manager = GetChunkBufferManager(h, &onSampleManager);
-  if (!manager || !manager->buffer) return;
+  if (!manager || !manager->buffer || !manager->timestamps) return;
 
   // Fill buffer with current sample data
   float* current_sample_ptr = &manager->buffer[manager->sample_index_in_chunk * manager->numberOfChannels];
@@ -390,9 +410,40 @@ void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
 
   manager->sample_index_in_chunk++;
 
-  // Push chunk to LSL when buffer is full
+  // Push chunk to LSL when buffer is full, with adaptive per-sample backfill.
   if (manager->sample_index_in_chunk == CHUNK_SIZE) {
-    lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), lsl_local_clock());
+    double t_now = lsl_local_clock();
+
+    /* Seed prev_last_ts on the first chunk so spacing falls back to nominal cadence. */
+    if (!manager->has_prev_ts) {
+      double nominal_chunk_duration = (manager->sample_rate > 0.0)
+                                          ? (double)CHUNK_SIZE / manager->sample_rate
+                                          : 0.030;
+      manager->prev_last_ts = t_now - nominal_chunk_duration;
+      manager->has_prev_ts = 1;
+    }
+
+    /* Guard against clock anomalies (non-monotonic lsl_local_clock, negative gap).
+     * If t_now went backwards, ignore it for this chunk and walk forward from
+     * prev_last_ts at nominal cadence so timestamps stay strictly increasing. */
+    double gap = t_now - manager->prev_last_ts;
+    if (gap <= 0.0) {
+      gap = (manager->sample_rate > 0.0) ? (double)CHUNK_SIZE / manager->sample_rate : 0.030;
+      /* prev_last_ts intentionally unchanged: we run forward from there. */
+    }
+
+    /* Evenly distribute the CHUNK_SIZE samples across (prev_last_ts, t_now]. */
+    double spacing = gap / (double)CHUNK_SIZE;
+    for (int i = 0; i < CHUNK_SIZE; ++i) {
+      manager->timestamps[i] = manager->prev_last_ts + (double)(i + 1) * spacing;
+    }
+
+    lsl_push_chunk_ftn(outlet,
+                       manager->buffer,
+                       (unsigned long)(CHUNK_SIZE * manager->numberOfChannels),
+                       manager->timestamps);
+
+    manager->prev_last_ts = manager->timestamps[CHUNK_SIZE - 1];
     manager->sample_index_in_chunk = 0;
   }
 }
@@ -726,7 +777,7 @@ void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * outlet )
 {
     (void)packetOffsetTime;
     ChunkBufferManager *manager = GetChunkBufferManager(h, &impedanceManager);
-    if (!manager || !manager->buffer) return;
+    if (!manager || !manager->buffer || !manager->timestamps) return;
 
     float* current_sample_ptr = &manager->buffer[manager->sample_index_in_chunk * manager->numberOfChannels];
 
@@ -737,8 +788,41 @@ void PrintImpedances( DSI_Headset h, double packetOffsetTime, void * outlet )
 
     manager->sample_index_in_chunk++;
 
+    /* Push chunk to LSL when buffer is full, with adaptive per-sample backfill.
+     * Mirrors OnSample so impedance-mode timestamps stay consistent with EEG mode. */
     if (manager->sample_index_in_chunk == CHUNK_SIZE) {
-        lsl_push_chunk_ft(outlet, manager->buffer, (size_t)(CHUNK_SIZE * manager->numberOfChannels), lsl_local_clock());
+        double t_now = lsl_local_clock();
+
+        /* First-chunk seed: anchor prev_last_ts at nominal cadence so spacing is sane. */
+        if (!manager->has_prev_ts) {
+            double nominal_chunk_duration = (manager->sample_rate > 0.0)
+                                                ? (double)CHUNK_SIZE / manager->sample_rate
+                                                : 0.030;
+            manager->prev_last_ts = t_now - nominal_chunk_duration;
+            manager->has_prev_ts = 1;
+        }
+
+        /* Clock-anomaly guard: if lsl_local_clock went backwards, ignore t_now for this
+         * chunk and walk forward from prev_last_ts at nominal cadence to stay monotonic. */
+        double gap = t_now - manager->prev_last_ts;
+        if (gap <= 0.0) {
+            gap = (manager->sample_rate > 0.0) ? (double)CHUNK_SIZE / manager->sample_rate : 0.030;
+            /* prev_last_ts intentionally unchanged. */
+        }
+
+        /* Evenly distribute CHUNK_SIZE samples across (prev_last_ts, t_now]. */
+        double spacing = gap / (double)CHUNK_SIZE;
+        for (int i = 0; i < CHUNK_SIZE; ++i) {
+            manager->timestamps[i] = manager->prev_last_ts + (double)(i + 1) * spacing;
+        }
+
+        lsl_push_chunk_ftn(outlet,
+                           manager->buffer,
+                           (unsigned long)(CHUNK_SIZE * manager->numberOfChannels),
+                           manager->timestamps);
+
+        /* Carry the last sample's timestamp forward as the next chunk's anchor. */
+        manager->prev_last_ts = manager->timestamps[CHUNK_SIZE - 1];
         manager->sample_index_in_chunk = 0;
     }
 }
