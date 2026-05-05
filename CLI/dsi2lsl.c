@@ -320,9 +320,9 @@ int startAnalogReset(DSI_Headset h) {
  * Collects samples into a chunk buffer and pushes them to the LSL outlet in batches.
  *
  * @param h - Valid DSI headset handle
- * @param unused_packet_offset_time - Unused packet offset time
- * @param outlet - LSL outlet to push data to
- */
+ * @param packetOffsetTime - Hardware acquisition time from DSI API (written as HW_Timestamp channel)
+  * @param outlet - LSL outlet to push data to
+  */
 /* Helper struct for chunk buffer management.
  *
  * Adaptive-backfill timestamping (per-chunk):
@@ -359,7 +359,8 @@ static ChunkBufferManager* GetChunkBufferManager(DSI_Headset h, ChunkBufferManag
         (*manager_ptr)->buffer = NULL;
         (*manager_ptr)->timestamps = NULL;
         if ((*manager_ptr)->numberOfChannels > 0) {
-            (*manager_ptr)->buffer = (float*)malloc(CHUNK_SIZE * (*manager_ptr)->numberOfChannels * sizeof(float));
+            /* +1 per sample for the HW_Timestamp reference channel */
+            (*manager_ptr)->buffer = (float*)malloc(CHUNK_SIZE * ((*manager_ptr)->numberOfChannels + 1) * sizeof(float));
             (*manager_ptr)->timestamps = (double*)malloc(CHUNK_SIZE * sizeof(double));
             if ((*manager_ptr)->buffer == NULL || (*manager_ptr)->timestamps == NULL) {
                 fprintf(stderr, "Fatal Error: Could not allocate memory for chunk buffer or timestamps.\n");
@@ -393,20 +394,20 @@ static ChunkBufferManager *onSampleManager = NULL;
  * Buffers samples and pushes them to LSL in chunks.
  *
  * @param h: DSI headset handle
- * @param unused_packet_offset_time: Unused
+ * @param packetOffsetTime: Hardware acquisition time from DSI API (written as HW_Timestamp channel)
  * @param outlet: LSL outlet
  */
-void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
+void OnSample(DSI_Headset h, double packetOffsetTime, void *outlet)
 {
-  (void)unused_packet_offset_time;
   ChunkBufferManager *manager = GetChunkBufferManager(h, &onSampleManager);
   if (!manager || !manager->buffer || !manager->timestamps) return;
 
-  // Fill buffer with current sample data
-  float* current_sample_ptr = &manager->buffer[manager->sample_index_in_chunk * manager->numberOfChannels];
+  // Fill EEG channels, then write HW_Timestamp into the last slot
+  float* current_sample_ptr = &manager->buffer[manager->sample_index_in_chunk * (manager->numberOfChannels + 1)];
   for (unsigned int channelIndex = 0; channelIndex < manager->numberOfChannels; channelIndex++) {
     current_sample_ptr[channelIndex] = (float)DSI_Channel_GetSignal(DSI_Headset_GetChannelByIndex(h, channelIndex));
   }
+  current_sample_ptr[manager->numberOfChannels] = (float)packetOffsetTime;
 
   manager->sample_index_in_chunk++;
 
@@ -440,7 +441,7 @@ void OnSample(DSI_Headset h, double unused_packet_offset_time, void *outlet)
 
     lsl_push_chunk_ftn(outlet,
                        manager->buffer,
-                       (unsigned long)(CHUNK_SIZE * manager->numberOfChannels),
+                       (unsigned long)(CHUNK_SIZE * (manager->numberOfChannels + 1)),
                        manager->timestamps);
 
     manager->prev_last_ts = manager->timestamps[CHUNK_SIZE - 1];
@@ -625,8 +626,8 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   getRandomString(source_id, IMAX);
   fprintf(stderr, "Source ID: %s\n", source_id);
 
-  /* Declare a new streaminfo (name: WearableSensing, content type: EEG, number of channels, srate, float values, source id. */
-  info = lsl_create_streaminfo((char*)streamName,"EEG",numberOfChannels,samplingRate,cft_float32,source_id);
+  /* +1 for the HW_Timestamp reference channel appended after the EEG channels. */
+  info = lsl_create_streaminfo((char*)streamName,"EEG",numberOfChannels + 1,samplingRate,cft_float32,source_id);
 
   if(!info) {
       fprintf(stderr, "Failed to create LSL streaminfo.\n");
@@ -657,6 +658,14 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
     lsl_append_child_value(chn,"unit","microvolts");
     lsl_append_child_value(chn,"type","EEG");
   }
+
+  /* HW_Timestamp: packetOffsetTime from the DSI hardware clock (seconds).
+   * Appended as the last channel for validation — lets you compare the
+   * headset's own acquisition clock against the adaptive-backfill LSL timestamps. */
+  chn = lsl_append_child(chns,"channel");
+  lsl_append_child_value(chn,"label","HW_Timestamp");
+  lsl_append_child_value(chn,"unit","seconds");
+  lsl_append_child_value(chn,"type","Misc");
 	
 	/* Describe reference used */
   reference = (char*)DSI_Headset_GetReferenceString(h);
