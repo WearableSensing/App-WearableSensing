@@ -4,7 +4,7 @@
  * Integration between Wearable Sensing DSI C/C++ API and Lab Streaming Layer (LSL).
  *
  * This program acquires data from a DSI headset and streams it over LSL for real-time
- * data acquisition and analysis. It uses Windows threads for parallel processing:
+ * data acquisition and analysis. It uses native threads for parallel processing:
  *   - DSI headset thread: continuously calls DSI_Headset_Idle to process incoming data.
  *   - Impedance thread: controls impedance measurement driver via runtime commands.
  *
@@ -16,6 +16,10 @@
  * For support or feature requests, create a GitHub Issue or contact support@wearablesensing.com.
  */
 
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "DSI.h"
 #include <lsl_c.h>
 #include <stdio.h>
@@ -23,7 +27,47 @@
 #include <time.h>
 #include <stdlib.h>
 #include <signal.h>
+
+#ifdef _WIN32
 #include <windows.h>
+typedef HANDLE DSIThread;
+typedef DWORD (WINAPI *DSIThreadFunction)(LPVOID);
+#define DSI_THREAD_DECL(name) DWORD WINAPI name(LPVOID lpParam)
+
+static int StartDSIThread(DSIThread *thread, DSIThreadFunction function, void *argument) {
+  *thread = CreateThread(NULL, 0, function, argument, 0, NULL);
+  return *thread != NULL;
+}
+
+static void JoinDSIThread(DSIThread thread) {
+  WaitForSingleObject(thread, INFINITE);
+  CloseHandle(thread);
+}
+
+static void SleepMilliseconds(unsigned int milliseconds) {
+  Sleep(milliseconds);
+}
+#else
+#include <pthread.h>
+typedef pthread_t DSIThread;
+typedef void *(*DSIThreadFunction)(void *);
+#define DSI_THREAD_DECL(name) void *name(void *lpParam)
+
+static int StartDSIThread(DSIThread *thread, DSIThreadFunction function, void *argument) {
+  return pthread_create(thread, NULL, function, argument) == 0;
+}
+
+static void JoinDSIThread(DSIThread thread) {
+  pthread_join(thread, NULL);
+}
+
+static void SleepMilliseconds(unsigned int milliseconds) {
+  struct timespec delay;
+  delay.tv_sec = (time_t)(milliseconds / 1000U);
+  delay.tv_nsec = (long)(milliseconds % 1000U) * 1000000L;
+  nanosleep(&delay, NULL);
+}
+#endif
 
 
 // -----------------------------------------------------------------------------
@@ -93,9 +137,9 @@ typedef struct {
  * ---------------------
  * Thread function to continuously call DSI_Headset_Idle for data processing.
  * @param lpParam: Pointer to DSI_Headset
- * @return DWORD: 0 on success
+ * @return platform thread result
  */
-DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
+DSI_THREAD_DECL(DSI_Processing_Thread) {
     DSI_Headset h = (DSI_Headset)lpParam;
     fprintf(stdout, "DSI processing thread started.\n");
 
@@ -111,7 +155,7 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
         }
         else {
             /* If paused, sleep to avoid busy-waiting */
-            Sleep(BUFFER_MILLISECONDS);
+            SleepMilliseconds(BUFFER_MILLISECONDS);
         }
     }
 
@@ -124,19 +168,27 @@ DWORD WINAPI DSI_Processing_Thread(LPVOID lpParam) {
  * ---------------
  * Thread function to check for impedance activity and control impedance driver.
  * @param lpParam: Pointer to ThreadParams
- * @return DWORD: 0 on success
+ * @return platform thread result
  */
-DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
+DSI_THREAD_DECL(ImpedanceThread) {
     fprintf(stdout, "DSI impedance thread started.\n");
     ThreadParams *params = (ThreadParams *)lpParam;
     DSI_Headset h = params->h;
 
     while(KeepRunning == 1){
       if(params->startFlag){
-        DSI_Headset_StartImpedanceDriver( h ); CHECK
+        DSI_Headset_StartImpedanceDriver( h );
+        if (CheckError() != 0) {
+          KeepRunning = 0;
+          break;
+        }
         // PrintImpedances( h, 0, "headings"); CHECK 
         /* Switch OnSample to PrintImpedances to print impedance values instead of raw signals. */
-        DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
+        DSI_Headset_SetSampleCallback( h, OnSample, params->outlet );
+        if (CheckError() != 0) {
+          KeepRunning = 0;
+          break;
+        }
         params->startFlag = 0;
       }
       /* Uncomment the following lines to continuously print impedance check. */
@@ -144,8 +196,16 @@ DWORD WINAPI ImpedanceThread(LPVOID lpParam) {
       //     DSI_Headset_Receive( h, 0.1, 0 ); CHECK
       // }
       if(params->stopFlag){
-        DSI_Headset_StopImpedanceDriver( h ); CHECK
-        DSI_Headset_SetSampleCallback( h, OnSample, params->outlet ); CHECK
+        DSI_Headset_StopImpedanceDriver( h );
+        if (CheckError() != 0) {
+          KeepRunning = 0;
+          break;
+        }
+        DSI_Headset_SetSampleCallback( h, OnSample, params->outlet );
+        if (CheckError() != 0) {
+          KeepRunning = 0;
+          break;
+        }
         params->stopFlag = 0;
       }
       
@@ -169,7 +229,9 @@ int main(int argc, const char *argv[])
   srand((unsigned int)time(NULL)); // Seed RNG
   const char *dllname = NULL;
   char command[MAX_COMMAND_LENGTH];
-  HANDLE sThread, iThread;
+  DSIThread sThread, iThread;
+  int sThreadStarted = 0;
+  int iThreadStarted = 0;
 
   // Load DSI DLL
   int load_error = Load_DSI_API(dllname);
@@ -213,26 +275,25 @@ int main(int argc, const char *argv[])
   zFLag.outlet = outlet; /* Valid LSL outlet */
 
   /* Create the impedance thread */
-  iThread = CreateThread(NULL, 0, ImpedanceThread, &zFLag, 0, NULL);
-  if (iThread == NULL) {
+  iThreadStarted = StartDSIThread(&iThread, ImpedanceThread, &zFLag);
+  if (!iThreadStarted) {
       fprintf(stderr, "Error creating DSI impedance thread.\n");
       return Finish(h);
   }
    /* Create and start the DSI processing thread */
-  sThread = CreateThread(NULL, 0, DSI_Processing_Thread, h, 0, NULL);
-  if (sThread == NULL) {
+  sThreadStarted = StartDSIThread(&sThread, DSI_Processing_Thread, h);
+  if (!sThreadStarted) {
       fprintf(stderr, "Error creating DSI processing thread.\n");
       /* Close the impedance thread handle to prevent leak */
-      if (iThread != NULL) {
+      if (iThreadStarted) {
           KeepRunning = 0;
-          WaitForSingleObject(iThread, 1000);
-          CloseHandle(iThread);
+          JoinDSIThread(iThread);
       }
       return Finish(h);
   }
   
   fprintf(stderr, "Wait...\n");
-  Sleep(THREAD_INIT_WAIT_MS); /* Wait for threads to initialize properly */
+  SleepMilliseconds(THREAD_INIT_WAIT_MS); /* Wait for threads to initialize properly */
   fprintf(stderr, "Setup Ready\n");
   /* Start streaming */
   fprintf(stdout, "Streaming...\n");
@@ -277,16 +338,14 @@ int main(int argc, const char *argv[])
   }
 
   /* Closing the threads */
-  if (sThread != NULL) {
+  if (sThreadStarted) {
       fprintf(stdout, "Waiting for DSI thread to terminate...\n");
-      WaitForSingleObject(sThread, INFINITE);
-      CloseHandle(sThread);
+      JoinDSIThread(sThread);
       fprintf(stdout, "DSI thread has terminated.\n");
   }
-  if (iThread != NULL) {
+  if (iThreadStarted) {
       fprintf(stdout, "Waiting for impedance thread to terminate...\n");
-      WaitForSingleObject(iThread, INFINITE);
-      CloseHandle(iThread);
+      JoinDSIThread(iThread);
       fprintf(stdout, "Impedance thread has terminated.\n");
   }
   
@@ -647,12 +706,11 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
     long_label = (char*) DSI_Channel_GetString( DSI_Headset_GetChannelByIndex( h, channelIndex ) );
     /* Cut off "negative" part of channel name (e.g., the ref chn) */
     char label_buffer[256];
-    strncpy_s(label_buffer, sizeof(label_buffer), long_label, _TRUNCATE);
-    label_buffer[sizeof(label_buffer) - 1] = '\0';
-    char *context = NULL;
-    short_label = strtok_s(label_buffer, "-", &context);
-    if(short_label == NULL)
-      short_label = label_buffer;
+    snprintf(label_buffer, sizeof(label_buffer), "%s", long_label ? long_label : "");
+    char *reference_separator = strchr(label_buffer, '-');
+    if(reference_separator != NULL)
+      *reference_separator = '\0';
+    short_label = label_buffer;
     /* Commit channel info to LSL stream */
     lsl_append_child_value(chn,"label", short_label);
     lsl_append_child_value(chn,"unit","microvolts");

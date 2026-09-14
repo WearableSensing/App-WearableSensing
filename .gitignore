@@ -61,3 +61,7 @@ compile_commands.json
 /LSL/*
 
 /dsi-api*/
+
+# Downloaded/generated macOS CLI build files
+/macos/deps/
+/macos/dist-*/
