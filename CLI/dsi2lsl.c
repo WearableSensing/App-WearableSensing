@@ -682,7 +682,7 @@ lsl_outlet InitLSL(DSI_Headset h, const char * streamName)
   char *reference;
 	
 	/* Note: an even better choice here may be the serial number of the device. */
-  getRandomString(source_id, IMAX);
+  getRandomString(source_id, IMAX - 1);
   fprintf(stderr, "Source ID: %s\n", source_id);
 
   /* +1 for the HW_Timestamp reference channel appended after the EEG channels. */
