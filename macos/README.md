@@ -6,6 +6,8 @@ script is run.
 ## Included versions
 
 - DSI API **v1.21.3**
+  - The required public interface, loader, and compiled macOS libraries are
+    included in `vendor/dsi-api/1.21.3`.
   - Includes the Apple Silicon wired-USB 921600-baud fix from v1.21.2.
 - liblsl **v1.17.7**
   - Uses the official universal macOS framework (Apple Silicon + Intel).
@@ -25,8 +27,8 @@ chmod +x macos/build-macos.sh
 ./macos/build-macos.sh
 ```
 
-The script detects `arm64` or `x86_64`, downloads the matching DSI API and the
-universal liblsl framework, and creates:
+The script detects `arm64` or `x86_64`, selects the matching bundled DSI API
+library, downloads the universal liblsl framework, and creates:
 
 ```text
 macos/dist-arm64/

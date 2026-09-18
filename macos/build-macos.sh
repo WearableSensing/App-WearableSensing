@@ -7,7 +7,7 @@ DEPS_DIR="${SCRIPT_DIR}/deps"
 
 DSI_VERSION="1.21.3"
 LSL_VERSION="1.17.7"
-DSI_DIR="${DEPS_DIR}/DSI_API_v${DSI_VERSION}"
+DSI_DIR="${ROOT_DIR}/vendor/dsi-api/${DSI_VERSION}"
 LSL_DIR="${DEPS_DIR}/liblsl-${LSL_VERSION}"
 
 case "$(uname -m)" in
@@ -28,14 +28,8 @@ esac
 mkdir -p "${DEPS_DIR}"
 
 if [[ ! -f "${DSI_DIR}/DSI.h" || ! -f "${DSI_DIR}/${DSI_LIBRARY}" ]]; then
-  echo "Downloading DSI API v${DSI_VERSION}..."
-  DSI_ZIP="${DEPS_DIR}/DSI_API_v${DSI_VERSION}.zip"
-  curl -fL \
-    "https://github.com/WearableSensing/dsi-api/releases/download/v${DSI_VERSION}/DSI_API_v${DSI_VERSION}.zip" \
-    -o "${DSI_ZIP}"
-  rm -rf "${DSI_DIR}"
-  mkdir -p "${DSI_DIR}"
-  ditto -x -k "${DSI_ZIP}" "${DSI_DIR}"
+  echo "Missing vendored DSI API v${DSI_VERSION} files in ${DSI_DIR}" >&2
+  exit 1
 fi
 
 LSL_FRAMEWORK="${LSL_DIR}/lsl.xcframework/macos-arm64_x86_64/lsl.framework"

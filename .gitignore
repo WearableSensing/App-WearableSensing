@@ -10,6 +10,11 @@
 *.dll
 *.dylib
 
+# Supported DSI API v1.21.3 runtime libraries are intentionally vendored.
+!vendor/dsi-api/1.21.3/libDSI-Darwin-arm64.dylib
+!vendor/dsi-api/1.21.3/libDSI-Darwin-x86_64.dylib
+!vendor/dsi-api/1.21.3/libDSI-Windows-x64.dll
+
 # Qt-es
 object_script.*.Release
 object_script.*.Debug

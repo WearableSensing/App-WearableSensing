@@ -17,6 +17,7 @@ set LSL_LIB="YOUR_PATH_TO_LIBLSL_LIB"
 set QT_INC="YOUR_PATH_TO_QT5_MINGW64_INCLUDE"
 set QT_LIB="YOUR_PATH_TO_QT5_MINGW_LIB"
 set QT_BIN="YOUR_PATH_TO_QT5_MINGW64_BIN"
+set DSI_API=vendor\dsi-api\1.21.3
 
 :: Add Qt bin to PATH for tools
 set PATH=%QT_BIN%;%PATH%
@@ -24,8 +25,8 @@ set PATH=%QT_BIN%;%PATH%
 :: Build dsi2lsl (console app)
 echo Building dsi2lsl...
 gcc CLI\dsi2lsl.c ^
-    DSI_API_v1.20.3_06202025\DSI_API_Loader.c ^
-    -I DSI_API_v1.20.3_06202025 ^
+    %DSI_API%\DSI_API_Loader.c ^
+    -I %DSI_API% ^
     -I %LSL_INC% ^
     -L %LSL_LIB% -llsl ^
     -o %OUT%\dsi2lsl.exe
@@ -88,7 +89,7 @@ copy "%QT_BIN%\Qt5Core.dll" "%OUT%\" >nul
 copy "%QT_BIN%\Qt5Gui.dll" "%OUT%\" >nul
 copy "%QT_BIN%\Qt5Widgets.dll" "%OUT%\" >nul
 copy "YOUR_PATH_TO_LIBLSL__BIN_LSL.DLL" "%OUT%\" >nul 
-copy "YOUR_PATH_TO_LIBDSI.DLL" "%OUT%\" >nul 
+copy "%DSI_API%\libDSI-Windows-x64.dll" "%OUT%\" >nul
 
 :: Copy Qt platform plugins (REQUIRED for Qt GUI apps!)
 echo Copying Qt platform plugins...

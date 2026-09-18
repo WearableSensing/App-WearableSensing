@@ -3,11 +3,13 @@
 ---
 
 ## Build from Source Guide
-This documentation last updated July, 2025.
+This documentation last updated September, 2026.
 > [!IMPORTANT]
-> This build guide has only been tested using Windows.
+> This section describes the Windows build. For macOS, see
+> [`macos/README.md`](macos/README.md).
 
-This program will only work on Windows. 
+The command-line application supports Windows x64, macOS Apple Silicon, and
+macOS Intel.
 
 This guide provides instructions for locally compiling and running the Wearable Sensing dsi2lsl plugin. Following these steps will allow you to set up the necessary environment and dependencies to build two executable files from the source code:
 
@@ -21,8 +23,8 @@ Download the following packages and place them in a single parent folder for eas
 
 - [App-WearableSensing (LSL Plugin)](https://github.com/labstreaminglayer/App-WearableSensing):
 The source code of the plugin itself. Download the repositroy as a zip file and extract it into your designated folder.
-- [DSI API](https://wearablesensing.com/files/DSI-API_Current.zip): The current official API from Wearable Sensing
-- [LSL Library (v1.16.2)](https://github.com/sccn/liblsl/releases): The latest version of Lab Streaming Layer.
+- DSI API v1.21.3 is included under `vendor/dsi-api/1.21.3`.
+- [LSL Library (v1.17.7)](https://github.com/sccn/liblsl/releases): The tested version of Lab Streaming Layer.
 
 #### 🛠️System Dependencies 
 Ensure the following software is installed on your computer.
@@ -44,12 +46,12 @@ lsl-wearablesensing
         |--- .vscode/settings.json
         |--- CLI
         |--- GUI
-        |--- DSI-API
+        |--- vendor/dsi-api/1.21.3
         |--- LSL Library
         |--- CMakeLists.txt
 ```
 
-Edit Project Names/Path: Inside ```CMakeLists.txt```, take a look at lines 24-28. Since the dependencies you download might be earlier or later versions ensure the naming is correct. 
+The CMake configuration already points to the bundled DSI API v1.21.3.
 
 #### CMake Configuration
 You need to tell CMake where to find the LSL and Qt5 libraries you downloaded. In VS Code, the easiest way to do this is by creating a workspace settings file.

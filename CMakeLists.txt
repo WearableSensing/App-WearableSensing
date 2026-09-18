@@ -26,7 +26,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>)
 
 # Sets variables for the directories used
 # --------------------UPDATE base on your naming conventions, or updating version-------------------------------------------
-SET(DSI-API "${CMAKE_CURRENT_SOURCE_DIR}/API/DSI_API_v1.20.3_06202025")
+SET(DSI-API "${CMAKE_CURRENT_SOURCE_DIR}/vendor/dsi-api/1.21.3")
 SET(LSL-CLI "${CMAKE_CURRENT_SOURCE_DIR}/CLI")
 SET(LSL-GUI "${CMAKE_CURRENT_SOURCE_DIR}/GUI")
 # --------------------------------------------------------------------------------------------------------------------------
@@ -61,6 +61,14 @@ target_include_directories(dsi2lsl
 	PRIVATE 
 	"${DSI-API}" 
 )
+
+if(WIN32)
+	add_custom_command(TARGET dsi2lsl POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${DSI-API}/libDSI-Windows-x64.dll"
+			"$<TARGET_FILE_DIR:dsi2lsl>"
+	)
+endif()
 
 # the dependencies for the GUI
 target_link_libraries(${PROJECT_NAME}
