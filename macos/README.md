@@ -1,46 +1,61 @@
-# macOS CLI build
+# Wearable Sensing LSL for macOS
 
-This builds the tested adaptive-backfill `dsi2lsl` CLI for the Mac on which the
-script is run.
+This guide explains how to build and run the `dsi2lsl` command-line application
+on Apple Silicon and Intel Macs. The latest macOS-compatible DSI API required by
+the application is bundled with the project.
 
-## Included versions
+The build uses the official liblsl v1.17.7 universal macOS framework.
 
-- DSI API **v1.21.3**
-  - The required public interface, loader, and compiled macOS libraries are
-    included in `vendor/dsi-api/1.21.3`.
-  - Includes the Apple Silicon wired-USB 921600-baud fix from v1.21.2.
-- liblsl **v1.17.7**
-  - Uses the official universal macOS framework (Apple Silicon + Intel).
-- LSL timestamping: **Wearable Sensing adaptive backfill**
-  - Nine samples are buffered per chunk.
-  - One `lsl_local_clock()` value anchors the end of each chunk.
-  - The nine timestamps are distributed evenly from the previous chunk's
-    endpoint to the new endpoint.
-  - `HW_Timestamp` is included as the final channel for validation.
+## Requirements
+
+- macOS 11 or later
+- An internet connection during the first build
+- Apple Command Line Tools
+
+Install the Apple Command Line Tools from Terminal:
+
+```bash
+xcode-select --install
+```
+
+Apple may ask you to accept the Xcode and macOS SDK license the first time the
+compiler runs. Follow the displayed instructions to accept it.
 
 ## Build
 
-On the Mac, open Terminal in the repository and run:
+Open Terminal, change into the downloaded repository folder, and run:
 
 ```bash
 chmod +x macos/build-macos.sh
 ./macos/build-macos.sh
 ```
 
-The script detects `arm64` or `x86_64`, selects the matching bundled DSI API
-library, downloads the universal liblsl framework, and creates:
+The script detects the Mac architecture and creates either
+`macos/dist-arm64/` or `macos/dist-x86_64/`.
 
-```text
-macos/dist-arm64/
+## macOS security prompt
+
+The first time the software runs, macOS may report that it cannot verify the
+developer or check the software for malicious content. To approve it:
+
+1. Attempt to run the application once.
+2. Open **System Settings > Privacy & Security**.
+3. Find the blocked-software message and click **Open Anyway**.
+4. Authenticate when prompted, then run the application again.
+
+Alternatively, run this command from the repository root:
+
+```bash
+xattr -dr com.apple.quarantine "macos/dist-$(uname -m)" vendor/dsi-api/1.21.3
 ```
 
-or:
-
-```text
-macos/dist-x86_64/
-```
+This removes the quarantine attribute only from this project's build and DSI
+API files. Do not disable Gatekeeper globally.
 
 ## Run
+
+For information about connecting your headset to macOS, please contact
+[Wearable Sensing Support](mailto:support@wearablesensing.com).
 
 Find the headset's serial port:
 
@@ -48,14 +63,37 @@ Find the headset's serial port:
 ls /dev/cu.*
 ```
 
-Then run from the generated folder:
+Common port names are:
+
+- Wireless: `/dev/cu.DSIXX-XXXX`
+- Wired: `/dev/cu.SLAB_USBtoUART`
+
+Change into the generated folder:
 
 ```bash
-cd macos/dist-arm64
+cd "macos/dist-$(uname -m)"
+```
+
+Run the application, replacing the port with the exact value shown on the Mac:
+
+```bash
 ./run-dsi2lsl.sh --port=/dev/cu.YOUR_DSI_PORT --lsl-stream-name=WS-default
 ```
 
-Use `dist-x86_64` instead on an Intel Mac.
+ A successful connection displays `Streaming...`. Press `Control-C` to stop.
 
-The wrapper changes into the output directory before starting the program so
-the DSI dynamic library can be found reliably.
+## Wireless reconnection
+
+After stopping a wireless recording, restart the macOS Bluetooth service before
+reconnecting:
+
+```bash
+sudo pkill bluetoothd
+```
+
+Enter the Mac login password when prompted. Terminal does not display password
+characters while they are entered. The headset can remain powered on. Allow
+Bluetooth to restart, reconnect the headset if necessary, and verify that its
+`/dev/cu.DSIXX-XXXX` port is present before running the application again.
+
+This step is not required for wired connections.
